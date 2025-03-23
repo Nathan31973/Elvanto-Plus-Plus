@@ -1,0 +1,15 @@
+.chat .content ol li .text {
+    padding: 4px 8px;
+    border-radius: 5px;
+    margin-right: 48px;
+    color: #fff;
+    background-color: #0f653b !important;
+    word-break: break-word;
+}
+
+.chat .content ol li.current .text {
+    margin-right: 0;
+    margin-left: 48px;
+    color: #fff;
+    background-color: #134f7a !important
+}

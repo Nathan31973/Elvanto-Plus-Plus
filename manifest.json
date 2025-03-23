@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Elvanto Live Plus Plus",
+    "version": "0.01",
+    "description": "Enhance Elvanto Live chat with usefully text chat features found in modern text apps.",
+    "permissions": ["scripting", "activeTab"],
+    "host_permissions": [
+      "https://*.elvanto.com.au/*"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["https://*.elvanto.com.au/live/*"],
+        "js": ["content.js"],
+        "css": ["style.css"]
+      }
+    ],
+    "icons": {
+        "16": "icon-16.png",
+        "48": "icon-48.png",
+        "128": "icon-128.png"
+      }
+  }
+  
