@@ -27,9 +27,14 @@ function initExtension() {
     let personName = window.Live && window.Live.personName ? window.Live.personName : getPersonNameFromPage();
     if (personName) {
       // Get the username and remove spaces
-      const username = personName.replace(/\s+/g, '');
-      const mentionRegex = new RegExp(`(^|\\W)@${username}\\b`, 'i');
-  
+      const username = personName;
+      const nameParts = username.split(' ');
+      const firstName = nameParts[0].toLowerCase(); // e.g., "nathan"
+      const lastName = nameParts[nameParts.length - 1].toLowerCase(); // e.g., "poulton"
+      const fullMention = `@${firstName}${lastName}`; // e.g., "@nathanpoulton"
+    
+      // Regex to match @mentions (case-insensitive)
+      const mentionRegex = new RegExp(`\\B@(${firstName}|${lastName}|${firstName}${lastName})\\b`,'i');
       // Find the chat container
       const chatContainer = document.querySelector('.chat .content ol');
       if (!chatContainer) {
