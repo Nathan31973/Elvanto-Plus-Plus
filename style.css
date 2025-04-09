@@ -20,3 +20,8 @@
     line-height: 1.428571429;
     color: #e3e0e0 !important
 }
+
+.chat .content ol li .text.mentioned {
+    background-color: #cb6c00 !important;
+    font-weight: bold !important;
+}
