@@ -22,7 +22,11 @@ function getPersonNameFromPage() {
 function getControllerName() {
   const currentControlElement = document.querySelector('.live-control .current span');
   if (currentControlElement && currentControlElement.textContent.trim() !== "") {
-    return currentControlElement.textContent.trim();
+    const fullText = currentControlElement.textContent.trim();
+    console.log("Raw controller text from .current span:", fullText);
+    // Extract first name from "<first name> is in Control"
+    const match = fullText.match(/^(\w+)/);
+    return match ? match[1] : null;
   }
   return null;
 }
@@ -62,9 +66,9 @@ function initExtension() {
 
   const username = personName;
   const nameParts = username.split(' ');
-  const firstName = nameParts[0].toLowerCase();
-  const lastName = nameParts[nameParts.length - 1].toLowerCase(); 
-  const fullMention = `@${firstName}${lastName}`;
+  const firstName = nameParts[0].toLowerCase(); // e.g., "nathan"
+  const lastName = nameParts[nameParts.length - 1].toLowerCase(); // e.g., "poulton"
+  const fullMention = `@${firstName}${lastName}`; // e.g., "@nathanpoulton"
 
   // Regex to match @mentions (case-insensitive)
   const mentionRegex = new RegExp(`\\B@(${firstName}|${lastName}|${firstName}${lastName})\\b`, 'i');
@@ -94,6 +98,7 @@ function initExtension() {
       if (liElement) {
         const senderNameRaw = liElement.querySelector('.name').textContent.split(' - ')[0].trim();
         const senderName = senderNameRaw.replace(/\s+/g, ' ').trim(); // Normalize spaces
+        const senderFirstName = senderName.split(' ')[0]; // Extract sender's first name
         console.log("Sender name:", senderName, "| Current user name:", personName);
 
         if (messageText === "/refresh") {
@@ -109,9 +114,9 @@ function initExtension() {
               console.log("Refresh command ignored: sender does not match current user");
             }
           } else {
-            const controllerName = getControllerName();
-            console.log("Controller name from UI:", controllerName);
-            if (controllerName && senderName === controllerName) {
+            const controllerFirstName = getControllerName();
+            console.log("Controller first name from UI:", controllerFirstName);
+            if (controllerFirstName && senderFirstName === controllerFirstName) {
               console.log("Refresh command from controller, refreshing...");
               location.reload();
             } else {
