@@ -72,7 +72,8 @@ function initExtension() {
 
   // Regex to match @mentions (case-insensitive)
   const mentionRegex = new RegExp(`\\B@(${firstName}|${lastName}|${firstName}${lastName})\\b`, 'i');
-
+  const MentionAllRegex = new RegExp(`\\B@(all)\\b`, 'i');
+  const MentionEveryoneRegex = new RegExp(`\\B@(everyone)\\b`, 'i');
   // Find the chat container
   const chatContainer = document.querySelector('.chat .content ol');
   if (!chatContainer) {
@@ -85,6 +86,12 @@ function initExtension() {
     messages.forEach(message => {
       const messageText = message.textContent.trim();
       if (mentionRegex.test(messageText)) {
+        message.classList.add('mentioned');
+      }
+      if (MentionAllRegex.test(messageText)) {
+        message.classList.add('mentioned');
+      }
+      if (MentionEveryoneRegex.test(messageText)) {
         message.classList.add('mentioned');
       }
     });
@@ -123,7 +130,14 @@ function initExtension() {
               console.log("Refresh command ignored: sender is not in control");
             }
           }
-        } else if (mentionRegex.test(messageText)) {
+        }
+        else if (mentionRegex.test(messageText)) {
+          message.classList.add('mentioned');
+        }
+        else if (MentionAllRegex.test(messageText)) {
+          message.classList.add('mentioned');
+        }
+        else if (MentionEveryoneRegex.test(messageText)) {
           message.classList.add('mentioned');
         }
       }
