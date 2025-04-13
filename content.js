@@ -54,6 +54,71 @@ function isNoOneInControl() {
   return isVisible;
 }
 
+// Function to correct styles in .description-description divs and nested spans
+function correctDescriptionStyles(elements) {
+  elements.forEach(div => {
+    if (div.hasAttribute('style')) {
+      const style = div.getAttribute('style');
+      let styleMap = new Map();
+
+      // Parse div style attribute into key-value pairs
+      style.split(';').forEach(rule => {
+        const [key, value] = rule.split(':').map(s => s.trim());
+        if (key && value) {
+          styleMap.set(key, value);
+        }
+      });
+
+      // Remove background-color and set color to white for div
+      if (styleMap.has('background-color')) {
+        console.log(`Removing background-color from div: ${div.textContent.substring(0, 50)}...`);
+        styleMap.delete('background-color');
+      }
+      if (styleMap.has('color')) {
+        console.log(`Changing div color to white: ${div.textContent.substring(0, 50)}...`);
+      }
+      styleMap.set('color', 'white');
+
+      // Rebuild div style attribute
+      const newStyle = Array.from(styleMap.entries())
+        .map(([key, value]) => `${key}:${value}`)
+        .join(';');
+      div.setAttribute('style', newStyle);
+
+      // Check for nested spans with inline styles
+      const spans = div.querySelectorAll('span[style]');
+      spans.forEach(span => {
+        const spanStyle = span.getAttribute('style');
+        let spanStyleMap = new Map();
+
+        // Parse span style attribute
+        spanStyle.split(';').forEach(rule => {
+          const [key, value] = rule.split(':').map(s => s.trim());
+          if (key && value) {
+            spanStyleMap.set(key, value);
+          }
+        });
+
+        // Remove color from span to inherit div's color:white
+        if (spanStyleMap.has('color')) {
+          console.log(`Removing color from span: ${span.textContent.substring(0, 50)}...`);
+          spanStyleMap.delete('color');
+        }
+
+        // Rebuild span style attribute
+        const newSpanStyle = Array.from(spanStyleMap.entries())
+          .map(([key, value]) => `${key}:${value}`)
+          .join(';');
+        if (newSpanStyle) {
+          span.setAttribute('style', newSpanStyle);
+        } else {
+          span.removeAttribute('style');
+        }
+      });
+    }
+  });
+}
+
 // Function to inject the Refresh button into a given release div
 function injectRefreshButton(releaseDiv, context) {
   if (!releaseDiv) {
@@ -71,7 +136,7 @@ function injectRefreshButton(releaseDiv, context) {
   // Add click event listener with confirmation
   refreshButton.addEventListener('click', () => {
     if (isCurrentUserInControl()) {
-      const confirmed = window.confirm("Are you sure you want to refresh web page?");
+      const confirmed = window.confirm("Are you sure you want to refresh all users web page?");
       console.log(`Refresh button clicked in ${context}, confirmation: ${confirmed}`);
       if (confirmed) {
         console.log(`Refresh confirmed in ${context}, simulating /refresh in chat...`);
@@ -129,6 +194,10 @@ function initExtension() {
   // Inject Refresh buttons into both .live-control sections
   injectRefreshButton(document.querySelector('.live-control .release'), 'first live-control');
   injectRefreshButton(document.querySelector('.overview.content .live-control .release'), 'overview live-control');
+
+  // Correct description styles in .plan.content
+  const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');
+  correctDescriptionStyles(descriptionDivs);
 
   // Function to check and process messages (for mentions only in initial scan)
   const checkMessagesForMentions = (messages) => {
