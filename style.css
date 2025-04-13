@@ -25,3 +25,54 @@
     background-color: #cb6c00 !important;
     font-weight: bold !important;
 }
+
+.btn-refresh:hover,
+.btn-refresh:active {
+    background-color: #e33f3f; /* Same as .btn-cancel hover */
+    border-color: #e33f3f;
+    color: #fff;
+}
+
+.btn-refresh:focus {
+    background-color: #fff0ee; /* Same as .btn-cancel focus */
+    border-color: #cb0000;
+    color: #cb0000;
+    box-shadow: 0 0 4px #cb0000;
+}
+
+.btn-refresh {
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    touch-action: manipulation;
+    cursor: pointer;
+    background-image: none;
+    border: 1px solid transparent;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color .24s, background-color .24s, border-color .24s, box-shadow .24s;
+    padding: 6px 12px;
+    font-size: 15px;
+    line-height: 1.428571429;
+    border-radius: 4px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background-color: #cb0000; /* .btn-cancel red */
+    border-color: #cb0000;
+    color: #fff;
+    position: static; /* Override .live-control .btn absolute */
+    margin-left: 8px; /* Space from Release */
+}
+
+.live-control .btn {
+    margin-left: 8px; /* Space from Release */
+    font-size: 14px;
+    padding: 4px 8px;
+    position: static !important;
+    top: 8px;
+    right: 8px;
+}

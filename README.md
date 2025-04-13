@@ -1,4 +1,4 @@
-# Elvanto Plus Plus Alpha V0.06
+# Elvanto Plus Plus Alpha V0.07
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
@@ -14,6 +14,9 @@ Enhance Elvanto Live Chat with helpful text chat features found in modern text a
 - [x] /refresh (Refresh all user webpage. User that is in control of the service. Usefull for runsheet updates)
 - [ ] Rich text (standerd discord text chat features in elvanto chat)
 - [ ] Auto fill commands (@someone needs this)
+
+## Custom Buttons
+- [x] Refresh button. (ask the user if they want to run the /refresh command)
 
 ### Install
 - Clone the repo

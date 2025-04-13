@@ -54,6 +54,50 @@ function isNoOneInControl() {
   return isVisible;
 }
 
+// Function to inject the Refresh button into a given release div
+function injectRefreshButton(releaseDiv, context) {
+  if (!releaseDiv) {
+    console.log(`Release div not found in ${context}, cannot inject Refresh button`);
+    return;
+  }
+
+  // Create the Refresh button
+  const refreshButton = document.createElement('button');
+  refreshButton.type = 'button';
+  refreshButton.className = 'btn-refresh';
+  refreshButton.textContent = 'Refresh';
+  refreshButton.setAttribute('data-live-action', 'custom-refresh');
+
+  // Add click event listener with confirmation
+  refreshButton.addEventListener('click', () => {
+    if (isCurrentUserInControl()) {
+      const confirmed = window.confirm("Are you sure you want to refresh web page?");
+      console.log(`Refresh button clicked in ${context}, confirmation: ${confirmed}`);
+      if (confirmed) {
+        console.log(`Refresh confirmed in ${context}, simulating /refresh in chat...`);
+        const chatForm = document.querySelector('.chat-form');
+        const chatTextarea = chatForm.querySelector('textarea[name="chat_text"]');
+        if (chatForm && chatTextarea) {
+          chatTextarea.value = '/refresh';
+          // Create and dispatch a submit event
+          const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+          chatForm.dispatchEvent(submitEvent);
+        } else {
+          console.error("Chat form or textarea not found, cannot send /refresh");
+        }
+      } else {
+        console.log(`Refresh canceled in ${context}`);
+      }
+    } else {
+      console.log(`Refresh button clicked in ${context}, but user is not in control`);
+    }
+  });
+
+  // Append to release div
+  releaseDiv.appendChild(refreshButton);
+  console.log(`Refresh button injected in ${context}`);
+}
+
 // Function to initialize the extension logic
 function initExtension() {
   let personName = getPersonNameFromPage();
@@ -66,20 +110,25 @@ function initExtension() {
 
   const username = personName;
   const nameParts = username.split(' ');
-  const firstName = nameParts[0].toLowerCase(); // e.g., "nathan"
-  const lastName = nameParts[nameParts.length - 1].toLowerCase(); // e.g., "poulton"
-  const fullMention = `@${firstName}${lastName}`; // e.g., "@nathanpoulton"
+  const firstName = nameParts[0].toLowerCase();
+  const lastName = nameParts[nameParts.length - 1].toLowerCase();
+  const fullMention = `@${firstName}${lastName}`;
 
   // Regex to match @mentions (case-insensitive)
   const mentionRegex = new RegExp(`\\B@(${firstName}|${lastName}|${firstName}${lastName})\\b`, 'i');
   const MentionAllRegex = new RegExp(`\\B@(all)\\b`, 'i');
   const MentionEveryoneRegex = new RegExp(`\\B@(everyone)\\b`, 'i');
+
   // Find the chat container
   const chatContainer = document.querySelector('.chat .content ol');
   if (!chatContainer) {
     console.error('Could not find chat container');
     return;
   }
+
+  // Inject Refresh buttons into both .live-control sections
+  injectRefreshButton(document.querySelector('.live-control .release'), 'first live-control');
+  injectRefreshButton(document.querySelector('.overview.content .live-control .release'), 'overview live-control');
 
   // Function to check and process messages (for mentions only in initial scan)
   const checkMessagesForMentions = (messages) => {
@@ -104,8 +153,8 @@ function initExtension() {
       const liElement = message.closest('li');
       if (liElement) {
         const senderNameRaw = liElement.querySelector('.name').textContent.split(' - ')[0].trim();
-        const senderName = senderNameRaw.replace(/\s+/g, ' ').trim(); // Normalize spaces
-        const senderFirstName = senderName.split(' ')[0]; // Extract sender's first name
+        const senderName = senderNameRaw.replace(/\s+/g, ' ').trim();
+        const senderFirstName = senderName.split(' ')[0];
         console.log("Sender name:", senderName, "| Current user name:", personName);
 
         if (messageText === "/refresh") {
