@@ -261,11 +261,17 @@ function initExtension(retries = 10) {
   const nameParts = username.split(' ');
   const firstName = nameParts[0].toLowerCase();
   const lastName = nameParts[nameParts.length - 1].toLowerCase();
-  const fullMention = `@${firstName}${lastName}`;
+  const fullMention = `${firstName}${lastName}`;
 
-  const mentionRegex = new RegExp(`\\B@(${firstName}|${lastName}|${firstName}${lastName})\\b`, 'i');
-  const MentionAllRegex = new RegExp(`\\B@(all)\\b`, 'i');
-  const MentionEveryoneRegex = new RegExp(`\\B@(everyone)\\b`, 'i');
+  // Get user's roles and transform them for mentions
+  const userRoles = window.elvantoUserRoles || [];
+  console.log("User roles:", userRoles);
+  const roleMentionNames = userRoles.map(role => role.toLowerCase().replace(/\s+/g, ''));
+
+  // Combine all mention targets: personal, all/everyone, and roles
+  const mentionTargets = ['all', 'everyone', firstName, lastName, fullMention, ...roleMentionNames];
+  const mentionRegex = new RegExp(`\\B@(${mentionTargets.join('|')})\\b`, 'i');
+  console.log("Mention regex pattern:", mentionRegex);
 
   // Inject Refresh buttons
   injectRefreshButton(
@@ -281,18 +287,18 @@ function initExtension(retries = 10) {
   const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');
   correctDescriptionStyles(descriptionDivs);
 
-  // Function to check mentions
+  // Function to check mentions in initial messages
   const checkMessagesForMentions = (messages) => {
     messages.forEach(message => {
       const messageText = message.textContent.trim();
-      if (mentionRegex.test(messageText) || MentionAllRegex.test(messageText) || MentionEveryoneRegex.test(messageText)) {
+      if (mentionRegex.test(messageText)) {
         message.classList.add('mentioned');
         console.log(`Highlighted mention: ${messageText}`);
       }
     });
   };
 
-  // Function to check commands
+  // Function to check commands and mentions in new messages
   const checkMessagesForCommands = (messages) => {
     messages.forEach(message => {
       const messageText = message.textContent.trim();
@@ -313,7 +319,6 @@ function initExtension(retries = 10) {
             return;
           }
           if (isCurrentUserInControl() || isServiceManager()) {
-            // Normalize names for comparison
             const normalizedSender = senderName.replace(/,\s*/g, ' ').trim();
             const normalizedPerson = personName.replace(/,\s*/g, ' ').trim();
             if (normalizedSender === normalizedPerson) {
@@ -331,7 +336,7 @@ function initExtension(retries = 10) {
               console.log("Ignoring /refresh: sender not controller");
             }
           }
-        } else if (mentionRegex.test(messageText) || MentionAllRegex.test(messageText) || MentionEveryoneRegex.test(messageText)) {
+        } else if (mentionRegex.test(messageText)) {
           message.classList.add('mentioned');
           console.log(`Highlighted mention: ${messageText}`);
         }
