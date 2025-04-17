@@ -21,6 +21,10 @@ Enhance Elvanto Live Chat with helpful text chat features found in modern text a
 ## Custom Buttons
 - [x] Refresh button. (ask the user if they want to run the /refresh command)
 
+## Settings Dropdown
+- [x] Notifcations Toggle (When Enable @Mention message will push OS Notification)
+- [x] Hide Commands in chat
+
 ## Church Feature Request
 Make a issue if you want features targeted to how you run elvanto at your local church to be added.
 - [x] Citipointe Church (50% done)
