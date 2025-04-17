@@ -229,8 +229,59 @@ function isDomReady() {
   const liveControl = document.querySelector('.controls-wrapper .live-control');
   const overviewControl = document.querySelector('.overview.content .live-control');
   const chatContainer = document.querySelector('.chat .content ol');
-  console.log(`DOM check: liveControl=${!!liveControl}, overviewControl=${!!overviewControl}, chatContainer=${!!chatContainer}`);
-  return liveControl && overviewControl && chatContainer;
+  const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
+  console.log(`DOM check: liveControl=${!!liveControl}, overviewControl=${!!overviewControl}, chatContainer=${!!chatContainer}, dropdownMenu=${!!dropdownMenu}`);
+  return liveControl && overviewControl && chatContainer && dropdownMenu;
+}
+
+// Function to request notification permission
+function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    console.log('Notification API not supported in this browser');
+    return false;
+  }
+
+  return Notification.requestPermission().then(permission => {
+    console.log(`Notification permission status: ${permission}`);
+    return permission === 'granted';
+  }).catch(err => {
+    console.error('Error requesting notification permission:', err);
+    return false;
+  });
+}
+
+// Function to show a notification
+let notificationsEnabled = false; // Track notification toggle state
+function showNotification(title, options) {
+  if (!('Notification' in window)) {
+    console.log('Notification API not supported');
+    return;
+  }
+
+  if (Notification.permission === 'granted' && notificationsEnabled) {
+    try {
+      new Notification(title, options);
+      console.log(`Notification shown: ${title}`);
+    } catch (err) {
+      console.error('Error showing notification:', err);
+    }
+  } else if (Notification.permission !== 'denied' && notificationsEnabled) {
+    // Request permission if not yet granted or denied
+    requestNotificationPermission().then(granted => {
+      if (granted) {
+        try {
+          new Notification(title, options);
+          console.log(`Notification shown after permission granted: ${title}`);
+        } catch (err) {
+          console.error('Error showing notification after permission:', err);
+        }
+      } else {
+        console.log('Notification permission not granted');
+      }
+    });
+  } else {
+    console.log('Notifications not shown: permission denied or toggle off');
+  }
 }
 
 // Function to initialize the extension
@@ -294,6 +345,12 @@ function initExtension(retries = 10) {
       if (mentionRegex.test(messageText)) {
         message.classList.add('mentioned');
         console.log(`Highlighted mention: ${messageText}`);
+        // Show OS notification
+        const senderName = message.closest('li')?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
+        showNotification(`Mention in Elvanto Live`, {
+          body: `${senderName}: ${messageText}`,
+          icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png' // Optional: Elvanto logo
+        });
       }
     });
   };
@@ -339,12 +396,18 @@ function initExtension(retries = 10) {
         } else if (mentionRegex.test(messageText)) {
           message.classList.add('mentioned');
           console.log(`Highlighted mention: ${messageText}`);
+          // Show OS notification
+          const senderName = message.closest('li')?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
+          showNotification(`Mention in Elvanto Live`, {
+            body: `${senderName}: ${messageText}`,
+            icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png' // Optional: Elvanto logo
+          });
         }
       }
     });
   };
 
-  // Highlight existing messages
+  // Highlight existing messages and check for mentions
   const chatContainer = document.querySelector('.chat .content ol');
   const initialMessages = chatContainer.querySelectorAll('div.text');
   checkMessagesForMentions(initialMessages);
@@ -369,6 +432,61 @@ function initExtension(retries = 10) {
 
   observer.observe(chatContainer, { childList: true, subtree: true });
   console.log("Chat observer started");
+
+  // Inject notification toggle into dropdown menu
+  if ('Notification' in window) {
+    const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
+    if (dropdownMenu) {
+      const notificationItem = document.createElement('li');
+      notificationItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-notifications">
+          <div class="custom-checkbox${Notification.permission === 'granted' ? ' checked' : ''}">
+            <i class="fa fa-check"></i>
+          </div>
+          Notifications
+        </label>
+      `;
+      dropdownMenu.appendChild(notificationItem);
+
+      const notificationLabel = notificationItem.querySelector('label');
+      const checkboxDiv = notificationItem.querySelector('.custom-checkbox');
+
+      // Initialize notificationsEnabled based on checkbox state
+      notificationsEnabled = Notification.permission === 'granted' && checkboxDiv.classList.contains('checked');
+      console.log(`Initial notificationsEnabled: ${notificationsEnabled}`);
+
+      notificationLabel.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent default dropdown behavior
+        const isChecked = checkboxDiv.classList.contains('checked');
+
+        if (!isChecked) {
+          // Request permission when enabling
+          requestNotificationPermission().then(granted => {
+            if (granted) {
+              checkboxDiv.classList.add('checked');
+              notificationsEnabled = true;
+              console.log("Notifications enabled by user");
+            } else {
+              checkboxDiv.classList.remove('checked');
+              notificationsEnabled = false;
+              console.log("User denied notification permission");
+              alert("Notifications were not enabled. You can enable them in your browser settings.");
+            }
+          });
+        } else {
+          // Disable notifications
+          checkboxDiv.classList.remove('checked');
+          notificationsEnabled = false;
+          console.log("Notifications disabled by user");
+          alert("Notifications disabled. You can re-enable them here or in your browser settings.");
+        }
+      });
+    } else {
+      console.error("Dropdown menu not found for notification toggle");
+    }
+  } else {
+    console.log("Notifications API not supported in this browser");
+  }
 }
 
 // Start initialization
