@@ -338,15 +338,41 @@ function initExtension(retries = 10) {
   const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');
   correctDescriptionStyles(descriptionDivs);
 
+  // Track hide slash commands toggle state
+  let hideSlashCommands = false;
+
+  // Function to hide or show slash command messages
+  const toggleSlashCommandVisibility = (messages, shouldHide) => {
+    messages.forEach(message => {
+      const messageText = message.textContent.trim();
+      const liElement = message.closest('li');
+      if (liElement) {
+        if (shouldHide && messageText.startsWith('/')) {
+          liElement.style.display = 'none';
+          console.log(`Hid slash command message: ${messageText}`);
+        } else if (!shouldHide && messageText.startsWith('/')) {
+          liElement.style.display = '';
+          console.log(`Showed slash command message: ${messageText}`);
+        }
+      }
+    });
+  };
+
   // Function to check mentions in initial messages
   const checkMessagesForMentions = (messages) => {
     messages.forEach(message => {
       const messageText = message.textContent.trim();
-      if (mentionRegex.test(messageText)) {
+      const liElement = message.closest('li');
+      if (hideSlashCommands && messageText.startsWith('/')) {
+        if (liElement) {
+          liElement.style.display = 'none';
+          console.log(`Hid slash command message: ${messageText}`);
+        }
+      } else if (mentionRegex.test(messageText)) {
         message.classList.add('mentioned');
         console.log(`Highlighted mention: ${messageText}`);
         // Show OS notification
-        const senderName = message.closest('li')?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
+        const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
         showNotification(`Mention in Elvanto Live`, {
           body: `${senderName}: ${messageText}`,
           icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png' // Optional: Elvanto logo
@@ -369,6 +395,11 @@ function initExtension(retries = 10) {
         const senderName = senderNameRaw.replace(/\s+/g, ' ').trim();
         const senderFirstName = senderName.split(' ')[0];
         console.log(`Message: ${messageText}, Sender: ${senderName}, Current user: ${personName}`);
+
+        if (hideSlashCommands && messageText.startsWith('/')) {
+          liElement.style.display = 'none';
+          console.log(`Hid slash command message: ${messageText}`);
+        }
 
         if (messageText.toLowerCase() === "/refresh") {
           if (isNoOneInControl() && !isCurrentUserInControl() && !isServiceManager()) {
@@ -397,7 +428,7 @@ function initExtension(retries = 10) {
           message.classList.add('mentioned');
           console.log(`Highlighted mention: ${messageText}`);
           // Show OS notification
-          const senderName = message.closest('li')?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
+          const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
           showNotification(`Mention in Elvanto Live`, {
             body: `${senderName}: ${messageText}`,
             icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png' // Optional: Elvanto logo
@@ -433,10 +464,11 @@ function initExtension(retries = 10) {
   observer.observe(chatContainer, { childList: true, subtree: true });
   console.log("Chat observer started");
 
-  // Inject notification toggle into dropdown menu
-  if ('Notification' in window) {
-    const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
-    if (dropdownMenu) {
+  // Inject toggles into dropdown menu
+  const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
+  if (dropdownMenu) {
+    // Notification toggle
+    if ('Notification' in window) {
       const notificationItem = document.createElement('li');
       notificationItem.innerHTML = `
         <label class="custom-checkbox-label" data-live-action="toggle-notifications">
@@ -482,10 +514,46 @@ function initExtension(retries = 10) {
         }
       });
     } else {
-      console.error("Dropdown menu not found for notification toggle");
+      console.log("Notifications API not supported in this browser");
     }
+
+    // Hide slash commands toggle
+    const hideSlashItem = document.createElement('li');
+    hideSlashItem.innerHTML = `
+      <label class="custom-checkbox-label" data-live-action="toggle-hide-slash-commands">
+        <div class="custom-checkbox">
+          <i class="fa fa-check"></i>
+        </div>
+        Hide Commands In Chat
+      </label>
+    `;
+    dropdownMenu.appendChild(hideSlashItem);
+
+    const hideSlashLabel = hideSlashItem.querySelector('label');
+    const hideSlashCheckboxDiv = hideSlashItem.querySelector('.custom-checkbox');
+
+    hideSlashLabel.addEventListener('click', (event) => {
+      event.preventDefault(); // Prevent default dropdown behavior
+      const isChecked = hideSlashCheckboxDiv.classList.contains('checked');
+
+      if (!isChecked) {
+        hideSlashCheckboxDiv.classList.add('checked');
+        hideSlashCommands = true;
+        console.log("Hide slash commands enabled");
+        // Hide slash commands without triggering notifications
+        const allMessages = document.querySelectorAll('.chat .content ol div.text');
+        toggleSlashCommandVisibility(allMessages, true);
+      } else {
+        hideSlashCheckboxDiv.classList.remove('checked');
+        hideSlashCommands = false;
+        console.log("Hide slash commands disabled");
+        // Show all previously hidden slash commands
+        const allMessages = document.querySelectorAll('.chat .content ol div.text');
+        toggleSlashCommandVisibility(allMessages, false);
+      }
+    });
   } else {
-    console.log("Notifications API not supported in this browser");
+    console.error("Dropdown menu not found for toggles");
   }
 }
 
