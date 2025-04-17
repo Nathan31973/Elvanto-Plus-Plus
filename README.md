@@ -1,4 +1,4 @@
-# Elvanto Plus Plus Alpha V0.09
+# Elvanto Plus Plus Alpha V0.10
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
@@ -9,6 +9,7 @@ Enhance Elvanto Live Chat with helpful text chat features found in modern text a
 - [ ] Admin Commands
 - [ ] Church Feature Request
 - [ ] Role permission (Fetch role from the elvanto.com.au/roster page)
+- [x] Push Notifications on messages (Mentions) 
 
 
 ## Chat Commands
