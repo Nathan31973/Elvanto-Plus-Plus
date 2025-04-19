@@ -284,6 +284,21 @@ function showNotification(title, options) {
   }
 }
 
+// Function to create the Last Refresh element
+function createLastRefreshElement() {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  const div = document.createElement('div');
+  div.className = 'last-refresh';
+  div.textContent = `Last Runsheet Update: ${timeString}`;
+  return div;
+}
+
 // Function to initialize the extension
 function initExtension(retries = 10) {
   if (!isDomReady() && retries > 0) {
@@ -333,6 +348,19 @@ function initExtension(retries = 10) {
     document.querySelector('.overview.content .live-control'),
     'overview live-control'
   );
+
+  // Inject Last Refresh timestamp
+  const liveControlDivs = [
+    document.querySelector('.controls-wrapper .live-control'),
+    document.querySelector('.overview.content .live-control')
+  ].filter(div => div !== null);
+
+  liveControlDivs.forEach(liveControlDiv => {
+    if (!liveControlDiv.querySelector('.last-refresh')) {
+      const lastRefreshDiv = createLastRefreshElement();
+      liveControlDiv.appendChild(lastRefreshDiv);
+    }
+  });
 
   // Correct description styles
   const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');

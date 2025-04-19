@@ -76,3 +76,29 @@
     top: 8px;
     right: 8px;
 }
+
+.last-refresh {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    height: 40px !important; /* Flexible height for text content */
+    min-height: 40px !important; /* Minimum height preserved */
+    line-height: 1.5; /* Better alignment for readability */
+    /*background-color: transparent !important; */
+    font-size: 10px; /* Adjusted for a timestamp */
+    font-weight: 600; /* Matches original emphasis */
+    color: #6d6d6d; /* Muted gray for subtlety */
+    margin-top: 0px; /* Spacing above the timestamp */
+}
+
+header .controls-wrapper .live-control div {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    height: 20px !important; /* Changed from 20px to auto to accommodate content */
+    min-height: 20px !important;
+    line-height: normal; /* Changed from 40px to normal for better text alignment */
+    background-color: transparent !important;
+    font-size: 14px; /* Changed from 16px to 14px for consistency with last-refresh */
+    font-weight: 400; /* Changed from 600 to 400 for a lighter appearance */
+}
