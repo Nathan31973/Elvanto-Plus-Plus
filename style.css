@@ -55,7 +55,7 @@
     transition: color .24s, background-color .24s, border-color .24s, box-shadow .24s;
     padding: 6px 12px;
     font-size: 15px;
-    line-height: 1.428571429;
+    line-height: 15px;
     border-radius: 4px;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -79,10 +79,11 @@
 
 .last-refresh {
     position: relative;
-    margin: 0;
-    padding: 0;
-    height: 40px !important; /* Flexible height for text content */
-    min-height: 40px !important; /* Minimum height preserved */
+    margin-top: 8px !important;
+    margin-right: 2px !important;
+    padding: 0px;
+    height: 20px !important; /* Flexible height for text content */
+    min-height: 20px !important; /* Minimum height preserved */
     line-height: 1.5; /* Better alignment for readability */
     /*background-color: transparent !important; */
     font-size: 10px; /* Adjusted for a timestamp */
@@ -94,11 +95,20 @@
 header .controls-wrapper .live-control div {
     position: relative;
     margin: 0;
-    padding: 0;
+    padding: 10 !important;
     height: 20px !important; /* Changed from 20px to auto to accommodate content */
     min-height: 20px !important;
-    line-height: normal; /* Changed from 40px to normal for better text alignment */
+    line-height: 26px !important; /* Changed from 40px to normal for better text alignment */
     background-color: transparent !important;
     font-size: 14px; /* Changed from 16px to 14px for consistency with last-refresh */
     font-weight: 400; /* Changed from 600 to 400 for a lighter appearance */
+}
+
+header .settings-dropdown .btn {
+    padding: 0;
+    width: 40px;
+    height: 49px !important;
+    line-height: 40px;
+    vertical-align: middle;
+    text-align: center
 }
