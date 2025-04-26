@@ -3,7 +3,7 @@
     "name": "Elvanto Live Plus Plus",
     "version": "0.12",
     "description": "Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.",
-    "permissions": ["scripting", "activeTab"],
+    "permissions": ["scripting", "activeTab", "notifications", "storage"],
     "host_permissions": [
       "https://*.elvanto.com.au/*"
     ],

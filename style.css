@@ -112,3 +112,23 @@ header .settings-dropdown .btn {
     vertical-align: middle;
     text-align: center
 }
+
+.chat .users ul {
+    height: 75px !important;
+    width: 100%;
+    padding: 0;
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0
+}
+
+.chat .content {
+    top: 75px !important;
+}
+
+.field-access-list.scroll {
+    border: 1px solid #00a6ff !important;
+    border-radius: 4px
+}

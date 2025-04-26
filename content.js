@@ -184,11 +184,6 @@ function injectRefreshButton(liveControlDiv, context, retries = 3) {
   // Inject into .current
   if (!currentDiv.querySelector('.btn-refresh') && isServiceManager()) {
     const refreshButtonCurrent = createRefreshButton(`${context} (current)`);
-    // Remove existing span to avoid clutter
-    const span = currentDiv.querySelector('span');
-    if (span) {
-      currentDiv.removeChild(span);
-    }
     currentDiv.appendChild(refreshButtonCurrent);
     console.log(`Refresh button injected in ${context} inside current`);
   } else {
