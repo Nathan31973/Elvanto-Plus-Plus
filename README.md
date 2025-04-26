@@ -1,4 +1,4 @@
-# Elvanto Plus Plus Alpha V0.12
+# Elvanto Plus Plus Alpha V0.13
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
