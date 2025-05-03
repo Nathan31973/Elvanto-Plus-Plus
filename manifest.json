@@ -1,21 +1,22 @@
 {
     "manifest_version": 3,
     "name": "Elvanto Live Plus Plus",
-    "version": "0.13",
+    "version": "0.14",
     "description": "Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.",
     "permissions": ["scripting", "activeTab", "notifications", "storage"],
     "host_permissions": [
-      "https://*.elvanto.com.au/*"
+      "https://*.elvanto.com.au/*", 
+      "https://nathan31973.github.io/*"
     ],
     "content_scripts": 
     [
       {
         "matches": ["https://*.elvanto.com.au/roster/*", "https://*.elvanto.com.au/live/*"],
-        "js": ["rolecacher.js"]
+        "js": ["rolecacher.js", "killswitch.js"]
       },
       {
         "matches": ["https://*.elvanto.com.au/live/*"],
-        "js": ["content.js"],
+        "js": ["content.js", "killswitch.js"],
         "css": ["style.css"],
         "run_at": "document_idle"
       }

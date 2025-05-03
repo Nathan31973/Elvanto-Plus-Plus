@@ -14,12 +14,16 @@ function getPersonNameFromPage() {
     if (script.textContent.includes('Live.init')) {
       const match = script.textContent.match(/"person_name":"([^"]+)"/);
       if (match) {
-        console.log("Found person name:", match[1]);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log("Found person name:", match[1]);
+        }
         return match[1];
       }
     }
   }
-  console.log("Person name not found in scripts");
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Person name not found in scripts");
+  }
   return null;
 }
 
@@ -28,11 +32,15 @@ function getControllerName() {
   const currentControlElement = document.querySelector('.live-control .current span, .live-control [class*="current"] span');
   if (currentControlElement && currentControlElement.textContent.trim() !== "") {
     const fullText = currentControlElement.textContent.trim();
-    console.log("Raw controller text:", fullText);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Raw controller text:", fullText);
+    }
     const match = fullText.match(/^(\w+)/);
     return match ? match[1] : null;
   }
-  console.log("No controller name found");
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("No controller name found");
+  }
   return null;
 }
 
@@ -41,7 +49,9 @@ function isElementVisible(element) {
   if (!element) return false;
   const style = window.getComputedStyle(element);
   const visible = style.display !== 'none' && style.visibility !== 'hidden';
-  console.log(`Element visibility check: display=${style.display}, visibility=${style.visibility}, visible=${visible}`);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Element visibility check: display=${style.display}, visibility=${style.visibility}, visible=${visible}`);
+  }
   return visible;
 }
 
@@ -49,11 +59,15 @@ function isElementVisible(element) {
 function isCurrentUserInControl() {
   const releaseDiv = document.querySelector('.live-control .release, .live-control [class*="release"]');
   if (!releaseDiv) {
-    console.log("No release div found for control check");
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("No release div found for control check");
+    }
     return false;
   }
   const isVisible = isElementVisible(releaseDiv);
-  console.log("Is current user in control?", isVisible);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Is current user in control?", isVisible);
+  }
   return isVisible;
 }
 
@@ -61,20 +75,28 @@ function isCurrentUserInControl() {
 function isNoOneInControl() {
   const takeControlDiv = document.querySelector('.live-control .take, .live-control [class*="take"]');
   if (!takeControlDiv) {
-    console.log("No take div found for control check");
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("No take div found for control check");
+    }
     return false;
   }
   const isVisible = isElementVisible(takeControlDiv);
-  console.log("Is no one in control?", isVisible);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Is no one in control?", isVisible);
+  }
   return isVisible;
 }
 
 // Function to check Service Manager role
 function isServiceManager() {
   const roles = window.elvantoUserRoles || [];
-  console.log("Raw roles for Service Manager check:", roles);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Raw roles for Service Manager check:", roles);
+  }
   const hasRole = roles.some(role => role && role.toLowerCase() === "service manager");
-  console.log(`Is Service Manager? ${hasRole} (roles: ${roles.join(', ') || 'none'})`);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Is Service Manager? ${hasRole} (roles: ${roles.join(', ') || 'none'})`);
+  }
   return hasRole;
 }
 
@@ -88,7 +110,9 @@ function correctDescriptionStyles(elements) {
         if (key && value) styleMap.set(key, value);
       });
       if (styleMap.has('background-color')) {
-        console.log(`Removing background-color from div: ${div.textContent.substring(0, 50)}...`);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Removing background-color from div: ${div.textContent.substring(0, 50)}...`);
+        }
         styleMap.delete('background-color');
       }
       styleMap.set('color', 'white');
@@ -103,7 +127,9 @@ function correctDescriptionStyles(elements) {
           if (key && value) spanStyleMap.set(key, value);
         });
         if (spanStyleMap.has('color')) {
-          console.log(`Removing color from span: ${span.textContent.substring(0, 50)}...`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Removing color from span: ${span.textContent.substring(0, 50)}...`);
+          }
           spanStyleMap.delete('color');
         }
         const newSpanStyle = Array.from(spanStyleMap.entries()).map(([k, v]) => `${k}:${v}`).join(';');
@@ -127,25 +153,37 @@ function createRefreshButton(context) {
 
   refreshButton.addEventListener('click', () => {
     if (isCurrentUserInControl() || isServiceManager()) {
-      console.log(`Refresh button clicked in ${context}`);
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Refresh button clicked in ${context}`);
+      }
       const confirmed = window.confirm("Are you sure you want to refresh all users web page?");
       if (confirmed) {
-        console.log(`Refresh confirmed in ${context}`);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Refresh confirmed in ${context}`);
+        }
         const chatForm = document.querySelector('.chat-form');
         const chatTextarea = chatForm?.querySelector('textarea[name="chat_text"]');
         if (chatForm && chatTextarea) {
           chatTextarea.value = '/refresh';
           const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
           chatForm.dispatchEvent(submitEvent);
-          console.log("Sent /refresh to chat");
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Sent /refresh to chat");
+          }
         } else {
-          console.error("Chat form or textarea not found");
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.error("Chat form or textarea not found");
+          }
         }
       } else {
-        console.log(`Refresh canceled in ${context}`);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Refresh canceled in ${context}`);
+        }
       }
     } else {
-      console.log(`Refresh button inactive in ${context}: not in control or Service Manager`);
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Refresh button inactive in ${context}: not in control or Service Manager`);
+      }
     }
   });
 
@@ -154,8 +192,17 @@ function createRefreshButton(context) {
 
 // Function to inject Refresh buttons
 function injectRefreshButton(liveControlDiv, context, retries = 3) {
+  if (!window.isFeatureEnabled || !window.isFeatureEnabled("Button", "Refresh")) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button disabled by kill switch in ${context}`);
+    }
+    return;
+  }
+
   if (!liveControlDiv) {
-    console.log(`No live-control div in ${context}, ${retries} retries left`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`No live-control div in ${context}, ${retries} retries left`);
+    }
     if (retries > 0) {
       setTimeout(() => {
         const retryDiv = document.querySelector(
@@ -174,7 +221,9 @@ function injectRefreshButton(liveControlDiv, context, retries = 3) {
   const releaseDiv = liveControlDiv.querySelector('.release, [class*="release"]');
 
   if (!currentDiv || !takeDiv) {
-    console.log(`Missing current=${!!currentDiv}, take=${!!takeDiv} in ${context}, ${retries} retries left`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Missing current=${!!currentDiv}, take=${!!takeDiv} in ${context}, ${retries} retries left`);
+    }
     if (retries > 0) {
       setTimeout(() => injectRefreshButton(liveControlDiv, context, retries - 1), 500);
     }
@@ -185,9 +234,13 @@ function injectRefreshButton(liveControlDiv, context, retries = 3) {
   if (!currentDiv.querySelector('.btn-refresh') && isServiceManager()) {
     const refreshButtonCurrent = createRefreshButton(`${context} (current)`);
     currentDiv.appendChild(refreshButtonCurrent);
-    console.log(`Refresh button injected in ${context} inside current`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button injected in ${context} inside current`);
+    }
   } else {
-    console.log(`Refresh button already exists in ${context} inside current`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button already exists in ${context} inside current`);
+    }
   }
 
   // Inject into .take
@@ -199,12 +252,16 @@ function injectRefreshButton(liveControlDiv, context, retries = 3) {
     } else {
       takeDiv.appendChild(refreshButtonTake);
     }
-    console.log(`Refresh button injected in ${context} inside take`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button injected in ${context} inside take`);
+    }
   } else {
-    console.log(`Refresh button already exists in ${context} inside take`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button already exists in ${context} inside take`);
+    }
   }
 
-  // inject into .release
+  // Inject into .release
   if (!releaseDiv.querySelector('.btn-refresh')) {
     const refreshButtonRelease = createRefreshButton(`${context} (release)`);
     const releaseButton = releaseDiv.querySelector('button[data-live-action="release-control"]');
@@ -213,9 +270,13 @@ function injectRefreshButton(liveControlDiv, context, retries = 3) {
     } else {
       releaseDiv.appendChild(refreshButtonRelease);
     }
-    console.log(`Refresh button injected in ${context} inside release`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button injected in ${context} inside release`);
+    }
   } else {
-    console.log(`Refresh button already exists in ${context} inside release`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Refresh button already exists in ${context} inside release`);
+    }
   }
 }
 
@@ -225,22 +286,37 @@ function isDomReady() {
   const overviewControl = document.querySelector('.overview.content .live-control');
   const chatContainer = document.querySelector('.chat .content ol');
   const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
-  console.log(`DOM check: liveControl=${!!liveControl}, overviewControl=${!!overviewControl}, chatContainer=${!!chatContainer}, dropdownMenu=${!!dropdownMenu}`);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`DOM check: liveControl=${!!liveControl}, overviewControl=${!!overviewControl}, chatContainer=${!!chatContainer}, dropdownMenu=${!!dropdownMenu}`);
+  }
   return liveControl && overviewControl && chatContainer && dropdownMenu;
 }
 
 // Function to request notification permission
 function requestNotificationPermission() {
+  if (!window.isFeatureEnabled || !window.isFeatureEnabled("Notification")) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Notifications disabled by kill switch");
+    }
+    return Promise.resolve(false);
+  }
+
   if (!('Notification' in window)) {
-    console.log('Notification API not supported in this browser');
-    return false;
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log('Notification API not supported in this browser');
+    }
+    return Promise.resolve(false);
   }
 
   return Notification.requestPermission().then(permission => {
-    console.log(`Notification permission status: ${permission}`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Notification permission status: ${permission}`);
+    }
     return permission === 'granted';
   }).catch(err => {
-    console.error('Error requesting notification permission:', err);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error('Error requesting notification permission:', err);
+    }
     return false;
   });
 }
@@ -248,17 +324,30 @@ function requestNotificationPermission() {
 // Function to show a notification
 let notificationsEnabled = false; // Track notification toggle state
 function showNotification(title, options) {
+  if (!window.isFeatureEnabled || !window.isFeatureEnabled("Notification")) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Notifications disabled by kill switch");
+    }
+    return;
+  }
+
   if (!('Notification' in window)) {
-    console.log('Notification API not supported');
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log('Notification API not supported');
+    }
     return;
   }
 
   if (Notification.permission === 'granted' && notificationsEnabled) {
     try {
       new Notification(title, options);
-      console.log(`Notification shown: ${title}`);
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Notification shown: ${title}`);
+      }
     } catch (err) {
-      console.error('Error showing notification:', err);
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error('Error showing notification:', err);
+      }
     }
   } else if (Notification.permission !== 'denied' && notificationsEnabled) {
     // Request permission if not yet granted or denied
@@ -266,21 +355,36 @@ function showNotification(title, options) {
       if (granted) {
         try {
           new Notification(title, options);
-          console.log(`Notification shown after permission granted: ${title}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Notification shown after permission granted: ${title}`);
+          }
         } catch (err) {
-          console.error('Error showing notification after permission:', err);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.error('Error showing notification after permission:', err);
+          }
         }
       } else {
-        console.log('Notification permission not granted');
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log('Notification permission not granted');
+        }
       }
     });
   } else {
-    console.log('Notifications not shown: permission denied or toggle off');
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log('Notifications not shown: permission denied or toggle off');
+    }
   }
 }
 
 // Function to create the Last Refresh element
 function createLastRefreshElement() {
+  if (!window.isFeatureEnabled || !window.isFeatureEnabled("LastRefresh")) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("LastRefresh disabled by kill switch");
+    }
+    return null;
+  }
+
   const now = new Date();
   const timeString = now.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -291,32 +395,55 @@ function createLastRefreshElement() {
   const div = document.createElement('div');
   div.className = 'last-refresh';
   div.textContent = `Last Runsheet Update: ${timeString}`;
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Created LastRefresh element: ${div.textContent}`);
+  }
   return div;
 }
 
 // Function to initialize the extension
-function initExtension(retries = 10) {
+function initExtension(retries = 10) 
+{
+  if (!window.isFeatureEnabled || !window.isFeatureEnabled("Plugin")) 
+  {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) 
+    {
+      console.log("Plugin disabled by kill switch");
+    }
+    return;
+  }
+
   if (!isDomReady() && retries > 0) {
-    console.log(`DOM not ready, retrying (${retries} left)...`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`DOM not ready, retrying (${retries} left)...`);
+    }
     setTimeout(() => initExtension(retries - 1), 500);
     return;
   }
   if (!isDomReady()) {
-    console.error("DOM not ready after retries, exiting");
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("DOM not ready after retries, exiting");
+    }
     return;
   }
 
   const personName = getPersonNameFromPage();
   if (!personName && retries > 0) {
-    console.log(`Person name not found, retrying (${retries} left)...`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Person name not found, retrying (${retries} left)...`);
+    }
     setTimeout(() => initExtension(retries - 1), 500);
     return;
   }
   if (!personName) {
-    console.error("Person name not found after retries, exiting");
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Person name not found after retries, exiting");
+    }
     return;
   }
-  console.log("Current user's name:", personName);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Current user's name:", personName);
+  }
 
   const username = personName;
   const nameParts = username.split(' ');
@@ -326,13 +453,29 @@ function initExtension(retries = 10) {
 
   // Get user's roles and transform them for mentions
   const userRoles = window.elvantoUserRoles || [];
-  console.log("User roles:", userRoles);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("User roles:", userRoles);
+  }
   const roleMentionNames = userRoles.map(role => role.toLowerCase().replace(/\s+/g, ''));
 
   // Combine all mention targets: personal, all/everyone, and roles
-  const mentionTargets = ['all', 'everyone', firstName, lastName, fullMention, ...roleMentionNames];
-  const mentionRegex = new RegExp(`\\B@(${mentionTargets.join('|')})\\b`, 'i');
-  console.log("Mention regex pattern:", mentionRegex);
+  const mentionTargets = [];
+  if (window.isFeatureEnabled && window.isFeatureEnabled("Command", "@Everyone")) {
+    mentionTargets.push('everyone');
+  }
+  if (window.isFeatureEnabled && window.isFeatureEnabled("Command", "@All")) {
+    mentionTargets.push('all');
+  }
+  if (window.isFeatureEnabled && window.isFeatureEnabled("Command", "@PersonName")) {
+    mentionTargets.push(firstName, lastName, fullMention);
+  }
+  if (window.isFeatureEnabled && window.isFeatureEnabled("Command", "@RoleName")) {
+    mentionTargets.push(...roleMentionNames);
+  }
+  const mentionRegex = mentionTargets.length > 0 ? new RegExp(`\\B@(${mentionTargets.join('|')})\\b`, 'i') : null;
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Mention regex pattern:", mentionRegex);
+  }
 
   // Inject Refresh buttons
   injectRefreshButton(
@@ -345,17 +488,42 @@ function initExtension(retries = 10) {
   );
 
   // Inject Last Refresh timestamp
-  const liveControlDivs = [
-    document.querySelector('.controls-wrapper .live-control'),
-    document.querySelector('.overview.content .live-control')
-  ].filter(div => div !== null);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("LastRefresh")) {
+    const liveControlDivs = [
+      document.querySelector('.controls-wrapper .live-control'),
+      document.querySelector('.overview.content .live-control')
+    ].filter(div => div !== null);
 
-  liveControlDivs.forEach(liveControlDiv => {
-    if (!liveControlDiv.querySelector('.last-refresh')) {
-      const lastRefreshDiv = createLastRefreshElement();
-      liveControlDiv.appendChild(lastRefreshDiv);
+    liveControlDivs.forEach(liveControlDiv => {
+      if (!liveControlDiv) {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log("Live control div not found for LastRefresh injection");
+        }
+        return;
+      }
+      if (!liveControlDiv.querySelector('.last-refresh')) {
+        const lastRefreshDiv = createLastRefreshElement();
+        if (lastRefreshDiv) {
+          liveControlDiv.appendChild(lastRefreshDiv);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`LastRefresh timestamp injected into ${liveControlDiv.className}`);
+          }
+        } else {
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Failed to create LastRefresh element");
+          }
+        }
+      } else {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`LastRefresh timestamp already exists in ${liveControlDiv.className}`);
+        }
+      }
+    });
+  } else {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("LastRefresh feature disabled by kill switch");
     }
-  });
+  }
 
   // Correct description styles
   const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');
@@ -372,10 +540,14 @@ function initExtension(retries = 10) {
       if (liElement) {
         if (shouldHide && messageText.startsWith('/')) {
           liElement.style.display = 'none';
-          console.log(`Hid slash command message: ${messageText}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Hid slash command message: ${messageText}`);
+          }
         } else if (!shouldHide && messageText.startsWith('/')) {
           liElement.style.display = '';
-          console.log(`Showed slash command message: ${messageText}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Showed slash command message: ${messageText}`);
+          }
         }
       }
     });
@@ -389,11 +561,15 @@ function initExtension(retries = 10) {
       if (hideSlashCommands && messageText.startsWith('/')) {
         if (liElement) {
           liElement.style.display = 'none';
-          console.log(`Hid slash command message: ${messageText}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Hid slash command message: ${messageText}`);
+          }
         }
-      } else if (mentionRegex.test(messageText)) {
+      } else if (mentionRegex && mentionRegex.test(messageText)) {
         message.classList.add('mentioned');
-        console.log(`Highlighted mention: ${messageText}`);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Highlighted mention: ${messageText}`);
+        }
         // Show OS notification
         const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
         showNotification(`Mention in Elvanto Live`, {
@@ -412,44 +588,62 @@ function initExtension(retries = 10) {
       if (liElement) {
         const senderNameRaw = liElement.querySelector('.name')?.textContent.split(' - ')[0]?.trim();
         if (!senderNameRaw) {
-          console.log("Sender name not found in message");
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Sender name not found in message");
+          }
           return;
         }
         const senderName = senderNameRaw.replace(/\s+/g, ' ').trim();
         const senderFirstName = senderName.split(' ')[0];
-        console.log(`Message: ${messageText}, Sender: ${senderName}, Current user: ${personName}`);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Message: ${messageText}, Sender: ${senderName}, Current user: ${personName}`);
+        }
 
         if (hideSlashCommands && messageText.startsWith('/')) {
           liElement.style.display = 'none';
-          console.log(`Hid slash command message: ${messageText}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Hid slash command message: ${messageText}`);
+          }
         }
 
-        if (messageText.toLowerCase() === "/refresh") {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("Command", "/refresh") && messageText.toLowerCase() === "/refresh") {
           if (isNoOneInControl() && !isCurrentUserInControl() && !isServiceManager()) {
-            console.log("Ignoring /refresh: no one in control and not Service Manager");
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.log("Ignoring /refresh: no one in control and not Service Manager");
+            }
             return;
           }
           if (isCurrentUserInControl() || isServiceManager()) {
             const normalizedSender = senderName.replace(/,\s*/g, ' ').trim();
             const normalizedPerson = personName.replace(/,\s*/g, ' ').trim();
             if (normalizedSender === normalizedPerson) {
-              console.log("Refresh command from controller/Service Manager, reloading...");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Refresh command from controller/Service Manager, reloading...");
+              }
               location.reload();
             } else {
-              console.log("Ignoring /refresh: sender does not match current user");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Ignoring /refresh: sender does not match current user");
+              }
             }
           } else {
             const controllerFirstName = getControllerName();
             if (controllerFirstName && senderFirstName === controllerFirstName) {
-              console.log("Refresh command from controller, reloading...");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Refresh command from controller, reloading...");
+              }
               location.reload();
             } else {
-              console.log("Ignoring /refresh: sender not controller");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Ignoring /refresh: sender not controller");
+              }
             }
           }
-        } else if (mentionRegex.test(messageText)) {
+        } else if (mentionRegex && mentionRegex.test(messageText)) {
           message.classList.add('mentioned');
-          console.log(`Highlighted mention: ${messageText}`);
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Highlighted mention: ${messageText}`);
+          }
           // Show OS notification
           const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
           showNotification(`Mention in Elvanto Live`, {
@@ -485,13 +679,15 @@ function initExtension(retries = 10) {
   });
 
   observer.observe(chatContainer, { childList: true, subtree: true });
-  console.log("Chat observer started");
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Chat observer started");
+  }
 
   // Inject toggles into dropdown menu
   const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
   if (dropdownMenu) {
     // Notification toggle
-    if ('Notification' in window) {
+    if ('Notification' in window && window.isFeatureEnabled && window.isFeatureEnabled("SettingToggle", "Notification")) {
       const notificationItem = document.createElement('li');
       notificationItem.innerHTML = `
         <label class="custom-checkbox-label" data-live-action="toggle-notifications">
@@ -508,7 +704,9 @@ function initExtension(retries = 10) {
 
       // Initialize notificationsEnabled based on checkbox state
       notificationsEnabled = Notification.permission === 'granted' && checkboxDiv.classList.contains('checked');
-      console.log(`Initial notificationsEnabled: ${notificationsEnabled}`);
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Initial notificationsEnabled: ${notificationsEnabled}`);
+      }
 
       notificationLabel.addEventListener('click', (event) => {
         event.preventDefault(); // Prevent default dropdown behavior
@@ -520,11 +718,15 @@ function initExtension(retries = 10) {
             if (granted) {
               checkboxDiv.classList.add('checked');
               notificationsEnabled = true;
-              console.log("Notifications enabled by user");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Notifications enabled by user");
+              }
             } else {
               checkboxDiv.classList.remove('checked');
               notificationsEnabled = false;
-              console.log("User denied notification permission");
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("User denied notification permission");
+              }
               alert("Notifications were not enabled. You can enable them in your browser settings.");
             }
           });
@@ -532,65 +734,106 @@ function initExtension(retries = 10) {
           // Disable notifications
           checkboxDiv.classList.remove('checked');
           notificationsEnabled = false;
-          console.log("Notifications disabled by user");
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Notifications disabled by user");
+          }
           alert("Notifications disabled. You can re-enable them here or in your browser settings.");
         }
       });
     } else {
-      console.log("Notifications API not supported in this browser");
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Notifications API not supported or disabled by kill switch");
+      }
     }
 
     // Hide slash commands toggle
-    const hideSlashItem = document.createElement('li');
-    hideSlashItem.innerHTML = `
-      <label class="custom-checkbox-label" data-live-action="toggle-hide-slash-commands">
-        <div class="custom-checkbox">
-          <i class="fa fa-check"></i>
-        </div>
-        Hide Commands In Chat
-      </label>
-    `;
-    dropdownMenu.appendChild(hideSlashItem);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("SettingToggle", "HideCommands")) {
+      const hideSlashItem = document.createElement('li');
+      hideSlashItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-hide-slash-commands">
+          <div class="custom-checkbox">
+            <i class="fa fa-check"></i>
+          </div>
+          Hide Commands In Chat
+        </label>
+      `;
+      dropdownMenu.appendChild(hideSlashItem);
 
-    const hideSlashLabel = hideSlashItem.querySelector('label');
-    const hideSlashCheckboxDiv = hideSlashItem.querySelector('.custom-checkbox');
+      const hideSlashLabel = hideSlashItem.querySelector('label');
+      const hideSlashCheckboxDiv = hideSlashItem.querySelector('.custom-checkbox');
 
-    hideSlashLabel.addEventListener('click', (event) => {
-      event.preventDefault(); // Prevent default dropdown behavior
-      const isChecked = hideSlashCheckboxDiv.classList.contains('checked');
+      hideSlashLabel.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent default dropdown behavior
+        const isChecked = hideSlashCheckboxDiv.classList.contains('checked');
 
-      if (!isChecked) {
-        hideSlashCheckboxDiv.classList.add('checked');
-        hideSlashCommands = true;
-        console.log("Hide slash commands enabled");
-        // Hide slash commands without triggering notifications
-        const allMessages = document.querySelectorAll('.chat .content ol div.text');
-        toggleSlashCommandVisibility(allMessages, true);
-      } else {
-        hideSlashCheckboxDiv.classList.remove('checked');
-        hideSlashCommands = false;
-        console.log("Hide slash commands disabled");
-        // Show all previously hidden slash commands
-        const allMessages = document.querySelectorAll('.chat .content ol div.text');
-        toggleSlashCommandVisibility(allMessages, false);
+        if (!isChecked) {
+          hideSlashCheckboxDiv.classList.add('checked');
+          hideSlashCommands = true;
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide slash commands enabled");
+          }
+          // Hide slash commands without triggering notifications
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleSlashCommandVisibility(allMessages, true);
+        } else {
+          hideSlashCheckboxDiv.classList.remove('checked');
+          hideSlashCommands = false;
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide slash commands disabled");
+          }
+          // Show all previously hidden slash commands
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleSlashCommandVisibility(allMessages, false);
+        }
+      });
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("HideCommands toggle disabled by kill switch");
       }
-    });
+    }
   } else {
-    console.error("Dropdown menu not found for toggles");
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Dropdown menu not found for toggles");
+    }
   }
 }
 
 // Start initialization
-const startExtension = (retries = 10) => {
-  if (typeof window.elvantoUserRoles !== 'undefined' && isDomReady()) {
-    console.log("Roles and DOM ready, initializing extension:", window.elvantoUserRoles);
-    initExtension();
+const startExtension = async (retries = 10) => {
+  if (
+    typeof window.elvantoUserRoles !== 'undefined' &&
+    isDomReady() &&
+    typeof window.isFeatureEnabled !== 'undefined' &&
+    typeof window.killSwitchesLoaded !== 'undefined'
+  ) {
+    try {
+      await window.killSwitchesLoaded;
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Roles, DOM, and kill switches ready, initializing extension:", window.elvantoUserRoles);
+      }
+      initExtension();
+    } catch (error) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Error loading kill switches, initializing with defaults:", error.message);
+      }
+      initExtension();
+    }
   } else {
-    console.log(`Waiting for roles=${typeof window.elvantoUserRoles}, DOM=${isDomReady()}, ${retries} retries left...`);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(
+        `Waiting for roles=${typeof window.elvantoUserRoles}, ` +
+        `DOM=${isDomReady()}, ` +
+        `isFeatureEnabled=${typeof window.isFeatureEnabled}, ` +
+        `killSwitchesLoaded=${typeof window.killSwitchesLoaded}, ` +
+        `${retries} retries left...`
+      );
+    }
     if (retries > 0) {
       setTimeout(() => startExtension(retries - 1), 500);
     } else {
-      console.error("Roles or DOM not ready after retries, initializing anyway");
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Roles, DOM, or kill switches not ready after retries, initializing with defaults");
+      }
       initExtension();
     }
   }
