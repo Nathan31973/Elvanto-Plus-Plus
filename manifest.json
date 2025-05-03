@@ -16,7 +16,7 @@
       },
       {
         "matches": ["https://*.elvanto.com.au/live/*"],
-        "js": ["content.js", "killswitch.js"],
+        "js": ["content.js", "killswitch.js", "permission.js"],
         "css": ["style.css"],
         "run_at": "document_idle"
       }
