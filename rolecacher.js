@@ -6,59 +6,75 @@ function normalizeRoleName(role) {
   return role ? role.toLowerCase().replace(/\s+/g, '') : '';
 }
 
-// Function to get the current user's name and all roles from roster
+// Function to get all users' names and roles from roster, including current user
 function getUserInfoFromRoster(retries = 5, delay = 500) {
   const attempt = () => {
-    // Broader selectors to handle DOM changes
-    const currentItems = document.querySelectorAll(
-      '.service-volunteers .positions li.current, ' +
-      '.volunteer-roster li.current, ' +
-      '[data-roster] li.current, ' +
-      '.roster-list li.current, ' +
-      'li[data-current="true"], ' +
-      '.roster-item.current'
+    // Select all roster items, not just .current
+    const rosterItems = document.querySelectorAll(
+      '.service-volunteers .positions li, ' +
+      '.volunteer-roster li, ' +
+      '[data-roster] li, ' +
+      '.roster-list li, ' +
+      '.roster-item'
     );
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-      console.log(`Found ${currentItems.length} current roster items`);
+      console.log(`Found ${rosterItems.length} roster items`);
+      // Log raw HTML of items for debugging
+      rosterItems.forEach((item, index) => {
+        console.log(`Roster item ${index} HTML:`, item.outerHTML);
+      });
     }
 
-    let name = null;
-    const roles = [];
+    const rosterData = {};
+    let currentUserName = null;
 
-    for (let item of currentItems) {
+    for (let item of rosterItems) {
       const nameElement = item.querySelector('.person .name, .volunteer-name, [data-name], .roster-name');
       const positionElement = item.querySelector('.position, .role, [data-role], .roster-role');
       if (nameElement && positionElement) {
-        const currentName = nameElement.textContent.trim();
+        const name = nameElement.textContent.trim().replace(/\s+/g, ' ');
         const role = positionElement.textContent.trim();
         if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.log(`Raw roster item: name=${currentName}, role=${role}`);
+          console.log(`Raw roster item: name=${name}, role=${role}`);
         }
-        if (!name) name = currentName; // Set name from first match
-        if (currentName === name && role) {
+        if (name && role) {
           const normalizedRole = normalizeRoleName(role);
-          roles.push(normalizedRole);
+          // Initialize array for user if not exists
+          rosterData[name] = rosterData[name] || [];
+          // Avoid duplicate roles
+          if (!rosterData[name].includes(normalizedRole)) {
+            rosterData[name].push(normalizedRole);
+          }
+          // Check if this is the current user
+          if (item.classList.contains('current') || item.getAttribute('data-current') === 'true') {
+            currentUserName = name;
+          }
         }
       }
     }
 
-    if (name && roles.length > 0) {
+    if (Object.keys(rosterData).length > 0) {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`Found user: ${name}, roles: ${roles.join(', ')}`);
+        console.log(`Found roster data:`, JSON.stringify(rosterData, null, 2));
+        if (currentUserName) {
+          console.log(`Current user: ${currentUserName}, roles: ${rosterData[currentUserName]?.join(', ') || 'none'}`);
+        } else {
+          console.log("Current user not identified in roster");
+        }
       }
-      return { name, roles };
+      return { rosterData, currentUserName };
     }
 
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-      console.log(name ? `No roles found for ${name} in current items` : "No current roster items found");
+      console.log("No roster items found");
     }
-    return name ? { name, roles: [] } : null;
+    return null;
   };
 
   let result = attempt();
   if (!result && retries > 0) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-      console.log(`No user info found, retrying (${retries} left)...`);
+      console.log(`No roster data found, retrying (${retries} left)...`);
     }
     return new Promise(resolve => {
       setTimeout(() => resolve(getUserInfoFromRoster(retries - 1, delay)), delay);
@@ -115,23 +131,47 @@ function getServiceIdFromUrlOrHref(urlOrHref) {
   return null;
 }
 
-// Function to cache the roles in localStorage
-function cacheRoles(serviceId, roles) {
+// Function to cache the roster data in localStorage
+function cacheRoster(serviceId, rosterData, currentUserName) {
   if (!serviceId) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
       console.log("Cannot cache: missing serviceId");
     }
     return;
   }
+  let rosterCache = JSON.parse(localStorage.getItem('elvantoRoster') || '{}');
+  rosterCache[serviceId] = rosterData || {};
+  localStorage.setItem('elvantoRoster', JSON.stringify(rosterCache));
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Cached roster for service ${serviceId}:`, JSON.stringify(rosterData, null, 2));
+  }
+
+  // Maintain compatibility with existing elvantoRoles for current user
   let roleCache = JSON.parse(localStorage.getItem('elvantoRoles') || '{}');
-  roleCache[serviceId] = roles || []; // Ensure array
+  roleCache[serviceId] = currentUserName && rosterData[currentUserName] ? rosterData[currentUserName] : [];
   localStorage.setItem('elvantoRoles', JSON.stringify(roleCache));
   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-    console.log(`Cached roles [${roles.join(', ') || 'none'}] for service ${serviceId}`);
+    console.log(`Cached current user roles [${roleCache[serviceId].join(', ') || 'none'}] for service ${serviceId}`);
   }
 }
 
-// Function to retrieve the cached roles
+// Function to retrieve the cached roster data
+function getCachedRoster(serviceId) {
+  if (!serviceId) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("No service ID, returning empty roster");
+    }
+    return {};
+  }
+  const rosterCache = JSON.parse(localStorage.getItem('elvantoRoster') || '{}');
+  const rosterData = rosterCache[serviceId] || {};
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Retrieved roster for service ${serviceId}:`, JSON.stringify(rosterData, null, 2));
+  }
+  return rosterData;
+}
+
+// Function to retrieve the cached roles for the current user (for compatibility)
 function getCachedRoles(serviceId) {
   if (!serviceId) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -150,7 +190,7 @@ function getCachedRoles(serviceId) {
     roles = roles.map(normalizeRoleName); // Normalize all roles
   }
   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-    console.log(`Retrieved roles [${roles.join(', ') || 'none'}] for service ${serviceId}`);
+    console.log(`Retrieved current user roles [${roles.join(', ') || 'none'}] for service ${serviceId}`);
   }
   return roles;
 }
@@ -158,23 +198,23 @@ function getCachedRoles(serviceId) {
 // Function to handle service button click with retry
 async function handleServiceButtonClick(serviceId, retries = 5, delay = 500) {
   const attempt = async () => {
-    const userInfo = await getUserInfoFromRoster();
-    if (userInfo) {
-      const { name, roles } = userInfo;
+    const result = await getUserInfoFromRoster();
+    if (result) {
+      const { rosterData, currentUserName } = result;
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`Service button for ${serviceId} clicked, caching roles for ${name}`);
+        console.log(`Service button for ${serviceId} clicked, caching roster`);
       }
-      cacheRoles(serviceId, roles);
+      cacheRoster(serviceId, rosterData, currentUserName);
     } else if (retries > 0) {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`No user info for service ${serviceId}, retrying (${retries} left)...`);
+        console.log(`No roster data for service ${serviceId}, retrying (${retries} left)...`);
       }
       setTimeout(() => handleServiceButtonClick(serviceId, retries - 1, delay), delay);
     } else {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`No user info for service ${serviceId} after retries, caching empty roles`);
+        console.log(`No roster data for service ${serviceId} after retries, caching empty roster`);
       }
-      cacheRoles(serviceId, []);
+      cacheRoster(serviceId, {}, null);
     }
   };
   await attempt();
@@ -195,13 +235,13 @@ function observeRosterChanges() {
       if (mutation.addedNodes.length || mutation.removedNodes.length) {
         const serviceId = getServiceIdFromUrlOrHref(window.location.href);
         if (serviceId) {
-          const userInfo = await getUserInfoFromRoster();
-          if (userInfo) {
-            const { name, roles } = userInfo;
+          const result = await getUserInfoFromRoster();
+          if (result) {
+            const { rosterData, currentUserName } = result;
             if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Roster DOM changed, caching roles for ${name}`);
+              console.log(`Roster DOM changed, caching roster`);
             }
-            cacheRoles(serviceId, roles);
+            cacheRoster(serviceId, rosterData, currentUserName);
           }
         }
       }
@@ -218,7 +258,7 @@ function observeRosterChanges() {
 async function initRoleCacher() {
   const url = window.location.href;
 
-  // Roster page: cache roles on Live button or service button click
+  // Roster page: cache roster data on Live button or service button click
   if (url.match(/^https:\/\/.*\.elvanto\.com\.au\/roster\//)) {
     // Start roster DOM observer
     observeRosterChanges();
@@ -235,18 +275,18 @@ async function initRoleCacher() {
       liveButton.addEventListener('click', async (e) => {
         const serviceId = getServiceIdFromUrlOrHref(window.location.href);
         if (serviceId) {
-          const userInfo = await getUserInfoFromRoster();
-          if (userInfo) {
-            const { name, roles } = userInfo;
+          const result = await getUserInfoFromRoster();
+          if (result) {
+            const { rosterData, currentUserName } = result;
             if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Live button clicked for ${name}, caching roles...`);
+              console.log(`Live button clicked, caching roster`);
             }
-            cacheRoles(serviceId, roles);
+            cacheRoster(serviceId, rosterData, currentUserName);
           } else {
             if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("No user info for Live button, caching empty roles");
+              console.log("No roster data for Live button, caching empty roster");
             }
-            cacheRoles(serviceId, []);
+            cacheRoster(serviceId, {}, null);
           }
         }
       });
@@ -263,18 +303,18 @@ async function initRoleCacher() {
           liveButton.addEventListener('click', async (e) => {
             const serviceId = getServiceIdFromUrlOrHref(window.location.href);
             if (serviceId) {
-              const userInfo = await getUserInfoFromRoster();
-              if (userInfo) {
-                const { name, roles } = userInfo;
+              const result = await getUserInfoFromRoster();
+              if (result) {
+                const { rosterData, currentUserName } = result;
                 if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log(`Live button clicked (retry) for ${name}, caching roles...`);
+                  console.log(`Live button clicked (retry), caching roster`);
                 }
-                cacheRoles(serviceId, roles);
+                cacheRoster(serviceId, rosterData, currentUserName);
               } else {
                 if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log("No user info for Live button (retry), caching empty roles");
+                  console.log("No roster data for Live button (retry), caching empty roster");
                 }
-                cacheRoles(serviceId, []);
+                cacheRoster(serviceId, {}, null);
               }
             }
           });
@@ -296,7 +336,7 @@ async function initRoleCacher() {
         const serviceId = getServiceIdFromUrlOrHref(button.href);
         if (serviceId) {
           if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log(`Service button clicked for service ${serviceId}, fetching roles...`);
+            console.log(`Service button clicked for service ${serviceId}, fetching roster...`);
           }
           await handleServiceButtonClick(serviceId);
         }
@@ -307,20 +347,24 @@ async function initRoleCacher() {
     }
   }
 
-  // Live chat page: retrieve cached roles
+  // Live chat page: retrieve cached roster and roles
   if (url.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
     const serviceId = getServiceIdFromUrlOrHref(window.location.href);
     if (serviceId) {
-      const roles = getCachedRoles(serviceId);
+      const rosterData = getCachedRoster(serviceId);
+      const currentUserRoles = getCachedRoles(serviceId);
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`Roles for live chat: ${roles.join(', ') || 'none'}`);
+        console.log(`Roster for live chat:`, JSON.stringify(rosterData, null, 2));
+        console.log(`Current user roles for live chat: ${currentUserRoles.join(', ') || 'none'}`);
       }
-      window.elvantoUserRoles = roles;
+      window.elvantoRoster = rosterData; // Make roster available globally
+      window.elvantoUserRoles = currentUserRoles;
       window.elvantoRolesReady = true; // Signal roles are ready
     } else {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("No service ID, setting empty roles");
+        console.log("No service ID, setting empty roster and roles");
       }
+      window.elvantoRoster = {};
       window.elvantoUserRoles = [];
       window.elvantoRolesReady = true;
     }

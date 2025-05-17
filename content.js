@@ -92,6 +92,16 @@ function normalizeRoleName(role) {
   return role ? role.toLowerCase().replace(/\s+/g, '') : '';
 }
 
+// Function to convert a name to Lastname, FirstName format
+function toLastnameFirstname(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name.trim();
+  const firstName = parts[0];
+  const lastName = parts[parts.length - 1];
+  return `${lastName}, ${firstName}`;
+}
+
 // Function to determine if a user can use a feature based on kill switches and permissions
 function canUseFeature(featureType, featureName, roles) {
   try {
@@ -468,6 +478,79 @@ function createLastRefreshElement() {
   return div;
 }
 
+// Function to color chat names based on roles
+function colorChatNames() {
+  if (!window.permissions || !window.permissions.Roles) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.warn("No permissions loaded, cannot color chat names");
+    }
+    return;
+  }
+
+  // Get all chat messages
+  const chatMessages = document.querySelectorAll('.chat .content ol li');
+  chatMessages.forEach((message) => {
+    const nameElement = message.querySelector('.name');
+    if (!nameElement) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Name element not found in message");
+      }
+      return;
+    }
+
+    // Extract the person's name from the name element
+    const nameText = nameElement.textContent.split(' - ')[0]?.trim();
+    if (!nameText) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Could not extract name from message");
+      }
+      return;
+    }
+
+    // Convert chat name to Lastname, FirstName format to match roster
+    const normalizedName = toLastnameFirstname(nameText);
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Chat name: ${nameText}, Normalized to: ${normalizedName}`);
+    }
+
+    // Get user's roles from roster
+    const userRoles = (window.elvantoRoster && window.elvantoRoster[normalizedName]) || [];
+    if (userRoles.length === 0) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`No roles found for user ${normalizedName}, using default color`);
+      }
+      return;
+    }
+
+    // Find the highest priority role with a color
+    let selectedRole = null;
+    let highestPriority = 100; // Higher than any priority in XML
+    let roleColor = null;
+
+    userRoles.forEach((role) => {
+      const normalizedRole = normalizeRoleName(role);
+      const roleData = window.permissions.Roles[normalizedRole];
+      if (roleData && roleData.Priority < highestPriority && roleData.RoleColour) {
+        selectedRole = normalizedRole;
+        highestPriority = roleData.Priority;
+        roleColor = roleData.RoleColour;
+      }
+    });
+
+    if (roleColor && selectedRole) {
+      // Apply the color to the name element
+      nameElement.style.color = roleColor;
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Colored name "${normalizedName}" with role ${selectedRole} color ${roleColor}`);
+      }
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`No valid role with color found for ${normalizedName}, using default color`);
+      }
+    }
+  });
+}
+
 // Function to initialize the extension
 function initExtension(retries = 10) {
   try {
@@ -525,10 +608,19 @@ function initExtension(retries = 10) {
       window.elvantoUserRoles = [];
     }
 
+    // Ensure roster is initialized
+    if (typeof window.elvantoRoster === 'undefined') {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.warn("Roster not loaded, defaulting to empty object");
+      }
+      window.elvantoRoster = {};
+    }
+
     // Normalize roles to lowercase
     window.elvantoUserRoles = (window.elvantoUserRoles || []).map(normalizeRoleName);
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
       console.log("Normalized user roles:", window.elvantoUserRoles);
+      console.log("Roster data:", JSON.stringify(window.elvantoRoster, null, 2));
     }
 
     const username = personName;
@@ -614,6 +706,44 @@ function initExtension(retries = 10) {
     // Correct description styles
     const descriptionDivs = document.querySelectorAll('.plan.content .description-description div[style]');
     correctDescriptionStyles(descriptionDivs);
+
+    // Define chatContainer once
+    const chatContainer = document.querySelector('.chat .content ol');
+    if (!chatContainer) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Chat container not found for observers");
+      }
+    }
+
+    // Color chat names based on roles
+    colorChatNames();
+
+    // Observe chat for new messages to color names
+    if (chatContainer) {
+      const nameColorObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes) {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList.contains('name')) {
+                  colorChatNames(); // Re-run for new names
+                } else {
+                  const newNames = node.querySelectorAll('.name');
+                  if (newNames.length > 0) {
+                    colorChatNames(); // Re-run for new names
+                  }
+                }
+              }
+            });
+          }
+        });
+      });
+
+      nameColorObserver.observe(chatContainer, { childList: true, subtree: true });
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Chat name color observer started");
+      }
+    }
 
     // Track hide slash commands toggle state
     let hideSlashCommands = false;
@@ -736,13 +866,12 @@ function initExtension(retries = 10) {
     };
 
     // Highlight existing messages and check for mentions
-    const chatContainer = document.querySelector('.chat .content ol');
     if (chatContainer) {
       const initialMessages = chatContainer.querySelectorAll('div.text');
       checkMessagesForMentions(initialMessages);
 
       // Monitor new messages
-      const observer = new MutationObserver((mutations) => {
+      const messageObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.addedNodes) {
             mutation.addedNodes.forEach((node) => {
@@ -759,13 +888,9 @@ function initExtension(retries = 10) {
         });
       });
 
-      observer.observe(chatContainer, { childList: true, subtree: true });
+      messageObserver.observe(chatContainer, { childList: true, subtree: true });
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("Chat observer started");
-      }
-    } else {
-      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.error("Chat container not found");
+        console.log("Chat message observer started");
       }
     }
 
@@ -892,8 +1017,9 @@ function initExtension(retries = 10) {
 // Start initialization
 const startExtension = async (retries = 10) => {
   try {
-    // Initialize roles to avoid undefined
+    // Initialize roles and roster to avoid undefined
     window.elvantoUserRoles = window.elvantoUserRoles || [];
+    window.elvantoRoster = window.elvantoRoster || {};
 
     if (
       window.elvantoRolesReady &&

@@ -132,3 +132,20 @@ header .settings-dropdown .btn {
     border: 1px solid #00a6ff !important;
     border-radius: 4px
 }
+
+.chat .content ol li .name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.chat .content ol li .name .username {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.chat .content ol li .name .timeago {
+    opacity: 0.7;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ddd;
+}

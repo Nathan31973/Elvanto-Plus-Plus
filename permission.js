@@ -44,9 +44,19 @@ function fetchPermissions(churchName) {
 
         const priorityNode = role.getElementsByTagName("Priority")[0];
         const priority = priorityNode ? parseInt(priorityNode.textContent.trim(), 10) || 99 : 99;
+        const roleColourNode = role.getElementsByTagName("RoleColour")[0];
+        const roleColour = roleColourNode ? roleColourNode.textContent.trim() : null;
+
+        // Log RoleColour for debugging
+        if (roleColour) {
+          console.log(`Loaded color ${roleColour} for role ${roleName}`);
+        } else {
+          console.warn(`No RoleColour defined for role ${roleName}`);
+        }
 
         window.permissions.Roles[roleName] = {
           Priority: priority,
+          RoleColour: roleColour,
           Commands: {},
           Buttons: {},
           SettingToggles: {}
