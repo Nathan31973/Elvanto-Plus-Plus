@@ -823,15 +823,39 @@ function initExtension(retries = 10) {
               }
             }
 
-            if (canUseFeature("Command", "/refresh", window.elvantoUserRoles) && messageText.toLowerCase() === "/refresh") {
-              const normalizedSender = senderName.replace(/,\s*/g, ' ').trim();
+            if (messageText.toLowerCase() === "/refresh") {
+              // Normalize sender name to match roster format
+              const normalizedSender = toLastnameFirstname(senderName);
               const normalizedPerson = personName.replace(/,\s*/g, ' ').trim();
-              if (normalizedSender === normalizedPerson) {
+
+              // Get sender's roles from roster
+              const senderRoles = (window.elvantoRoster && window.elvantoRoster[normalizedSender]) || [];
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log(`Sender ${normalizedSender} roles: ${senderRoles.join(', ') || 'none'}`);
+              }
+
+              // Check if sender is the current user
+              if (normalizedSender === toLastnameFirstname(normalizedPerson)) {
+                if (canUseFeature("Command", "/refresh", window.elvantoUserRoles)) {
+                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                    console.log("Refresh command from current user with permission, reloading...");
+                  }
+                  location.reload();
+                } else {
+                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                    console.log("Refresh command from current user denied: no permission");
+                  }
+                }
+              }
+              // Check sender's permission
+              else if (canUseFeature("Command", "/refresh", senderRoles)) {
                 if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log("Refresh command from current user, reloading...");
+                  console.log("Refresh command from sender with permission, reloading...");
                 }
                 location.reload();
-              } else {
+              }
+              // Check if sender is the controller
+              else {
                 const controllerFirstName = getControllerName();
                 if (controllerFirstName && senderFirstName === controllerFirstName) {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -840,7 +864,7 @@ function initExtension(retries = 10) {
                   location.reload();
                 } else {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("Ignoring /refresh: sender not current user or controller");
+                    console.log("Ignoring /refresh: sender has no permission and is not current user or controller");
                   }
                 }
               }
