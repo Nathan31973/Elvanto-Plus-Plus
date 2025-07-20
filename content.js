@@ -8,6 +8,258 @@ if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Not matching Elvanto live page.");
 }
 
+// --- NEW: GIF Browser Functions ---
+
+/**
+ * Injects the necessary CSS for the GIF button and browser modal into the document's head.
+ */
+function injectGifBrowserCSS() {
+  const css = `
+    /* Style for the new GIF button */
+    #gif-browser-btn {
+      position: absolute;
+      top: 4px;
+      right: 58px; /* Positioned to the left of the send button */
+      padding: 0;
+      text-align: center;
+      width: 50px;
+      height: 31px;
+      background-color: #5865f2; /* A modern, Discord-like color */
+      border-color: #5865f2;
+      color: #fff;
+      border-radius: 3px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    #gif-browser-btn:hover {
+        background-color: #4a54c9;
+    }
+
+    /* Adjust textarea to make space for both buttons */
+    .chat .input textarea {
+      padding-right: 112px !important;
+    }
+
+    /* Styles for the GIF browser modal */
+    #gif-modal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      z-index: 10001; /* High z-index to appear on top */
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.75);
+    }
+
+    #gif-modal-content {
+      position: relative;
+      background-color: #36393f; /* Dark theme like Discord */
+      margin: 8% auto;
+      padding: 20px;
+      border: 1px solid #202225;
+      width: 90%;
+      max-width: 640px;
+      border-radius: 8px;
+      color: #fff;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+
+    #gif-modal-close {
+      color: #b9bbbe;
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #gif-modal-close:hover {
+        color: #fff;
+    }
+
+    #gif-search-container {
+      display: flex;
+      margin-bottom: 20px;
+    }
+
+    #gif-search-input {
+      flex-grow: 1;
+      padding: 10px;
+      border-radius: 3px;
+      border: 1px solid #202225;
+      background-color: #40444b;
+      color: #dcddde;
+      font-size: 16px;
+    }
+
+    #gif-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      height: 55vh;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+    
+    /* Custom scrollbar for the results */
+    #gif-results::-webkit-scrollbar {
+      width: 8px;
+    }
+    #gif-results::-webkit-scrollbar-track {
+      background: #2e3338;
+    }
+    #gif-results::-webkit-scrollbar-thumb {
+      background: #202225;
+      border-radius: 4px;
+    }
+
+    #gif-results img {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      cursor: pointer;
+      border-radius: 4px;
+      background-color: #202225;
+      transition: transform 0.2s ease;
+    }
+    #gif-results img:hover {
+        transform: scale(1.05);
+    }
+    
+    .gif-loading-text {
+        color: #b9bbbe;
+    }
+  `;
+  const styleSheet = document.createElement("style");
+  styleSheet.type = "text/css";
+  styleSheet.innerText = css;
+  document.head.appendChild(styleSheet);
+}
+
+/**
+ * Fetches GIFs from the Tenor API based on a search query and displays them.
+ * @param {string} query - The search term for GIFs.
+ */
+async function fetchAndDisplayGifs(query = 'trending') {
+  const resultsContainer = document.getElementById('gif-results');
+  if (!resultsContainer) return;
+  resultsContainer.innerHTML = '<p class="gif-loading-text">Loading GIFs...</p>';
+
+  // IMPORTANT: You should get your own API key from Tenor (https://tenor.com/developer/keyregistration)
+  // The key below is a public test key from Tenor's documentation and may be rate-limited or disabled.
+  const API_KEY = 'APIKEY';
+  const CLIENT_KEY = 'APIKEY'; // A descriptive client key
+  const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=${CLIENT_KEY}&limit=30`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    resultsContainer.innerHTML = ''; // Clear loading message
+
+    if (data.results && data.results.length > 0) {
+      data.results.forEach(gif => {
+        const gifUrl = gif.media_formats.gif.url;
+        const previewUrl = gif.media_formats.tinygif.url; // Use a smaller, animated preview
+        
+        const img = document.createElement('img');
+        img.src = previewUrl;
+        img.dataset.gifUrl = gifUrl; // Store the full-quality GIF URL
+        img.alt = gif.content_description;
+        img.title = gif.content_description;
+        
+        resultsContainer.appendChild(img);
+      });
+    } else {
+      resultsContainer.innerHTML = '<p class="gif-loading-text">No GIFs found for that search.</p>';
+    }
+  } catch (error) {
+    console.error('Error fetching GIFs from Tenor API:', error);
+    resultsContainer.innerHTML = '<p class="gif-loading-text">Could not load GIFs. The public API key might be rate-limited.</p>';
+  }
+}
+
+/**
+ * Creates and injects the GIF browser modal into the page, and sets up its event listeners.
+ */
+function createGifBrowser() {
+  // Don't create the modal if it already exists
+  if (document.getElementById('gif-modal')) {
+    return;
+  }
+
+  const modalHTML = `
+    <div id="gif-modal">
+      <div id="gif-modal-content">
+        <span id="gif-modal-close">&times;</span>
+        <h2>GIF Browser</h2>
+        <div id="gif-search-container">
+          <input type="text" id="gif-search-input" placeholder="Search Tenor GIFs..." />
+        </div>
+        <div id="gif-results"></div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  // --- Event Listeners ---
+  const modal = document.getElementById('gif-modal');
+  const closeButton = document.getElementById('gif-modal-close');
+  const searchInput = document.getElementById('gif-search-input');
+  const resultsContainer = document.getElementById('gif-results');
+
+  // Open the modal
+  document.getElementById('gif-browser-btn').addEventListener('click', () => {
+    modal.style.display = 'block';
+    searchInput.focus();
+    // Fetch trending GIFs when opened
+    fetchAndDisplayGifs('trending');
+  });
+
+  // Close the modal
+  closeButton.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+  window.addEventListener('click', (event) => {
+    if (event.target == modal) {
+      modal.style.display = 'none';
+    }
+  });
+
+  // Search for GIFs on Enter key press
+  let searchTimeout;
+  searchInput.addEventListener('keyup', (event) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        const query = event.target.value.trim();
+        fetchAndDisplayGifs(query || 'trending');
+      }, 300); // Debounce search to avoid excessive API calls
+  });
+
+  // Handle GIF selection
+  resultsContainer.addEventListener('click', (event) => {
+    if (event.target.tagName === 'IMG' && event.target.dataset.gifUrl) {
+      const chatTextarea = document.querySelector('textarea[name="chat_text"]');
+      if (chatTextarea) {
+        chatTextarea.value = event.target.dataset.gifUrl;
+        // Optionally, auto-submit the form
+        // const chatForm = document.querySelector('.chat-form');
+        // if (chatForm) chatForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      }
+      modal.style.display = 'none'; // Close modal after selection
+    }
+  });
+}
+
+// --- End of GIF Browser Functions ---
+
+
 function getPersonNameFromPage() {
   const scripts = document.getElementsByTagName('script');
   for (let script of scripts) {
@@ -219,6 +471,46 @@ function correctDescriptionStyles(elements) {
     }
   });
 }
+
+// Function to find and embed GIF links in chat messages
+function embedGifs(messageElement) {
+  // Avoid re-processing the same element, which could lead to nested images.
+  if (messageElement.dataset.gifsProcessed) {
+    return;
+  }
+
+  // Regex to find URLs ending in .gif
+  const gifRegex = /(https?:\/\/[^\s"]+\.gif)/gi;
+  
+  // Test if the message's HTML contains a GIF URL
+  if (gifRegex.test(messageElement.innerHTML)) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Found GIF link, embedding:", messageElement.textContent);
+    }
+
+    // Replace the found GIF URL with an HTML structure that includes the embedded image but not the link text
+    messageElement.innerHTML = messageElement.innerHTML.replace(gifRegex, (match) => {
+      try {
+        // Sanitize and create a URL object to ensure it's valid
+        const url = new URL(match);
+        // The link text is removed, leaving only the clickable, embedded image.
+        return `<a href="${url.href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; word-break: break-all;">
+                  <img src="${url.href}" class="embedded-gif" alt="Embedded GIF" style="display: block; max-width: 250px; max-height: 200px; border-radius: 4px; margin-top: 5px;" />
+                </a>`;
+      } catch (e) {
+        // If the URL is malformed, return the original match without embedding
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.error("Malformed URL for GIF embedding:", match, e);
+        }
+        return match;
+      }
+    });
+    
+    // Mark the element as processed to prevent this function from running on it again
+    messageElement.dataset.gifsProcessed = 'true';
+  }
+}
+
 
 // Function to create Refresh button
 function createRefreshButton(context) {
@@ -665,6 +957,22 @@ function initExtension(retries = 10) {
       'overview live-control'
     );
 
+    // --- NEW: Inject GIF Browser ---
+    const chatForm = document.querySelector('.chat-form');
+    if (chatForm && !document.getElementById('gif-browser-btn')) {
+      const gifButton = document.createElement('button');
+      gifButton.type = 'button';
+      gifButton.id = 'gif-browser-btn';
+      gifButton.textContent = 'GIF';
+      chatForm.appendChild(gifButton);
+
+      // Create the modal and its logic
+      createGifBrowser();
+      // Inject the CSS for the modal and button
+      injectGifBrowserCSS();
+    }
+    // --- End of GIF Browser Injection ---
+
     // Inject Last Refresh timestamp
     if (window.isFeatureEnabled && window.isFeatureEnabled("LastRefresh")) {
       const liveControlDivs = [
@@ -772,6 +1080,7 @@ function initExtension(retries = 10) {
     // Function to check mentions in initial messages
     const checkMessagesForMentions = (messages) => {
       messages.forEach(message => {
+        embedGifs(message);
         const messageText = message.textContent.trim();
         const liElement = message.closest('li');
         if (hideSlashCommands && messageText.startsWith('/')) {
@@ -800,6 +1109,7 @@ function initExtension(retries = 10) {
     const checkMessagesForCommands = (messages) => {
       try {
         messages.forEach(message => {
+          embedGifs(message);
           const messageText = message.textContent.trim();
           const liElement = message.closest('li');
           if (liElement) {
