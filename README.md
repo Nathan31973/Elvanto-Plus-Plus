@@ -1,10 +1,11 @@
-# Elvanto Plus Plus Alpha V0.17
+# Elvanto Plus Plus Alpha V0.18
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
 ## Features
 - [x] Change the default text chat colours to more readable colours.
 - [x] Chat Commands (I.E @Someone)
+- [X] Gif support
 - [ ] Control Commands
 - [ ] Admin Commands
 - [ ] Church Feature Request
