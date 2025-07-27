@@ -8,7 +8,7 @@ if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Not matching Elvanto live page.");
 }
 
-// --- NEW: GIF Browser Functions ---
+// --- GIF Browser Functions ---
 
 /**
  * Injects the necessary CSS for the GIF button and browser modal into the document's head.
@@ -232,14 +232,14 @@ function createGifBrowser() {
     }
   });
 
-  // Search for GIFs on Enter key press
+  // Search for GIFs on keyup with debounce
   let searchTimeout;
   searchInput.addEventListener('keyup', (event) => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        const query = event.target.value.trim();
-        fetchAndDisplayGifs(query || 'trending');
-      }, 300); // Debounce search to avoid excessive API calls
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const query = event.target.value.trim();
+      fetchAndDisplayGifs(query || 'trending');
+    }, 300); // Debounce search to avoid excessive API calls
   });
 
   // Handle GIF selection
@@ -258,7 +258,6 @@ function createGifBrowser() {
 }
 
 // --- End of GIF Browser Functions ---
-
 
 function getPersonNameFromPage() {
   const scripts = document.getElementsByTagName('script');
@@ -379,8 +378,8 @@ function canUseFeature(featureType, featureName, roles) {
       console.log(`Raw user roles: ${roles ? roles.join(', ') : 'undefined'}`);
       console.log(`Processed user roles: ${userRoles.join(', ')}`);
       console.log(`Available permission roles: ${window.permissions && window.permissions.Roles ? Object.keys(window.permissions.Roles).join(', ') : 'none'}`);
+      console.log(` Perspectives structure: ${JSON.stringify(window.permissions, null, 2)}`);
       console.log(`localStorage.elvantoRoles: ${localStorage.getItem('elvantoRoles') || 'empty'}`);
-      console.log(`Permissions structure: ${JSON.stringify(window.permissions, null, 2)}`);
     }
 
     // Check if permissions are loaded
@@ -473,45 +472,94 @@ function correctDescriptionStyles(elements) {
 }
 
 // Function to find and embed GIF links in chat messages
+let hideGifPreviews = false; // Track GIF preview toggle state
 function embedGifs(messageElement) {
-  // Avoid re-processing the same element, which could lead to nested images.
-  if (messageElement.dataset.gifsProcessed) {
-    return;
-  }
-
-  // Regex to find URLs ending in .gif
-  const gifRegex = /(https?:\/\/[^\s"]+\.gif)/gi;
-  
-  // Test if the message's HTML contains a GIF URL
-  if (gifRegex.test(messageElement.innerHTML)) {
-    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-      console.log("Found GIF link, embedding:", messageElement.textContent);
+    if (messageElement.dataset.gifsProcessed) {
+        return;
     }
 
-    // Replace the found GIF URL with an HTML structure that includes the embedded image but not the link text
-    messageElement.innerHTML = messageElement.innerHTML.replace(gifRegex, (match) => {
-      try {
-        // Sanitize and create a URL object to ensure it's valid
-        const url = new URL(match);
-        // The link text is removed, leaving only the clickable, embedded image.
-        return `<a href="${url.href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; word-break: break-all;">
-                  <img src="${url.href}" class="embedded-gif" alt="Embedded GIF" style="display: block; max-width: 250px; max-height: 200px; border-radius: 4px; margin-top: 5px;" />
-                </a>`;
-      } catch (e) {
-        // If the URL is malformed, return the original match without embedding
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.error("Malformed URL for GIF embedding:", match, e);
+    const gifRegex = /(https?:\/\/[^\s"]+\.gif)/gi;
+
+    if (gifRegex.test(messageElement.innerHTML)) {
+        try {
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Found GIF link in message:", messageElement.textContent);
+            }
+
+            // Store original message if not already stored
+            if (!messageElement.dataset.originalText) {
+                messageElement.dataset.originalText = messageElement.innerHTML;
+            }
+
+            if (hideGifPreviews) {
+                // Replace entire message with placeholder when hideGifPreviews is enabled
+                messageElement.innerHTML = '{Has sent a gif}';
+                messageElement.dataset.gifsProcessed = 'true';
+                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                    console.log("GIF message replaced with '{Has sent a gif}' due to hideGifPreviews");
+                }
+            } else {
+                // Embed GIF as before
+                messageElement.innerHTML = messageElement.innerHTML.replace(gifRegex, (match) => {
+                    try {
+                        const url = new URL(match);
+                        return `<a href="${url.href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; word-break: break-all;">
+                            <img src="${url.href}" class="embedded-gif" alt="Embedded GIF" style="display: block; max-width: 250px; max-height: 200px; border-radius: 4px; margin-top: 5px;" />
+                        </a>`;
+                    } catch (e) {
+                        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                            console.error("Malformed URL for GIF embedding:", match, e);
+                        }
+                        return match;
+                    }
+                });
+                messageElement.dataset.gifsProcessed = 'true';
+                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                    console.log("GIF embedded in message");
+                }
+            }
+        } catch (error) {
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.error("Error in embedGifs:", error);
+            }
         }
-        return match;
-      }
-    });
-    
-    // Mark the element as processed to prevent this function from running on it again
-    messageElement.dataset.gifsProcessed = 'true';
-  }
+    }
 }
+// Function to toggle GIF preview visibility
+function toggleGifPreviewVisibility(messages, shouldHide) {
+    try {
+        messages.forEach(message => {
+            const liElement = message.closest('li');
+            if (!liElement) return;
 
-
+            if (shouldHide) {
+                if (message.dataset.originalText && /(https?:\/\/[^\s"]+\.gif)/gi.test(message.dataset.originalText)) {
+                    message.innerHTML = '{Has sent a gif}';
+                    message.dataset.gifsProcessed = 'true';
+                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                        console.log(`Replaced GIF message with '{Has sent a gif}' for: ${message.textContent.substring(0, 50)}...`);
+                    }
+                }
+            } else {
+                if (message.dataset.originalText) {
+                    message.innerHTML = message.dataset.originalText; // Restore original content
+                    message.dataset.gifsProcessed = '';
+                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                        console.log(`Restored original message content for: ${message.textContent.substring(0, 50)}...`);
+                    }
+                    embedGifs(message); // Reprocess for GIF embedding
+                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                        console.log(`Reprocessed GIF embedding for message: ${message.textContent.substring(0, 50)}...`);
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.error("Error in toggleGifPreviewVisibility:", error);
+        }
+    }
+}
 // Function to create Refresh button
 function createRefreshButton(context) {
   const refreshButton = document.createElement('button');
@@ -745,7 +793,7 @@ function showNotification(title, options) {
   }
 }
 
-// Function to create the Last Refresh element
+// Function to create Last Refresh element
 function createLastRefreshElement() {
   if (!window.isFeatureEnabled || !window.isFeatureEnabled("LastRefresh")) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -957,7 +1005,7 @@ function initExtension(retries = 10) {
       'overview live-control'
     );
 
-    // --- NEW: Inject GIF Browser ---
+    // --- Inject GIF Browser ---
     const chatForm = document.querySelector('.chat-form');
     if (chatForm && !document.getElementById('gif-browser-btn')) {
       const gifButton = document.createElement('button');
@@ -1317,7 +1365,7 @@ function initExtension(retries = 10) {
             if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
               console.log("Hide slash commands enabled");
             }
-            // Hide slash commands without triggering notifications
+            // Hide slash commands
             const allMessages = document.querySelectorAll('.chat .content ol div.text');
             toggleSlashCommandVisibility(allMessages, true);
           } else {
@@ -1334,6 +1382,52 @@ function initExtension(retries = 10) {
       } else {
         if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
           console.log("HideCommands toggle disabled by kill switch/permissions");
+        }
+      }
+
+      // Hide GIF previews toggle
+      if (canUseFeature("SettingToggle", "HideGifPreviews", window.elvantoUserRoles)) {
+        const hideGifItem = document.createElement('li');
+        hideGifItem.innerHTML = `
+          <label class="custom-checkbox-label" data-live-action="toggle-hide-gif-previews">
+            <div class="custom-checkbox">
+              <i class="fa fa-check"></i>
+            </div>
+            Hide GIF
+          </label>
+        `;
+        dropdownMenu.appendChild(hideGifItem);
+
+        const hideGifLabel = hideGifItem.querySelector('label');
+        const hideGifCheckboxDiv = hideGifItem.querySelector('.custom-checkbox');
+
+        hideGifLabel.addEventListener('click', (event) => {
+          event.preventDefault(); // Prevent default dropdown behavior
+          const isChecked = hideGifCheckboxDiv.classList.contains('checked');
+
+          if (!isChecked) {
+            hideGifCheckboxDiv.classList.add('checked');
+            hideGifPreviews = true;
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.log("Hide GIF previews enabled");
+            }
+            // Hide GIF previews in messages
+            const allMessages = document.querySelectorAll('.chat .content ol div.text');
+            toggleGifPreviewVisibility(allMessages, true);
+          } else {
+            hideGifCheckboxDiv.classList.remove('checked');
+            hideGifPreviews = false;
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.log("Hide GIF previews disabled");
+            }
+            // Show GIF previews in messages
+            const allMessages = document.querySelectorAll('.chat .content ol div.text');
+            toggleGifPreviewVisibility(allMessages, false);
+          }
+        });
+      } else {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log("HideGifPreviews toggle disabled by kill switch/permissions");
         }
       }
     } else {
@@ -1388,7 +1482,7 @@ const startExtension = async (retries = 10) => {
         );
       }
       if (retries > 0) {
-        setTimeout(() => startExtension(retries - 1), 1000);
+        setTimeout(() => startExtension(retries - 1), 500);
       } else {
         if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
           console.error("Roles, DOM, kill switches, or permissions not ready after retries, initializing with defaults");
