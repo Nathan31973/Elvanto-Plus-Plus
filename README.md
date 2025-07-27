@@ -1,4 +1,4 @@
-# Elvanto Plus Plus Alpha V0.18
+# Elvanto Plus Plus Alpha V0.19
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
@@ -25,6 +25,7 @@ Enhance Elvanto Live Chat with helpful text chat features found in modern text a
 ## Settings Dropdown
 - [x] Notifcations Toggle (When Enable @Mention message will push OS Notification)
 - [x] Hide Commands in chat
+- [x] Hide gif preview in chat
 
 
 ## Role Permissions

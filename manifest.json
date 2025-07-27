@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Elvanto Live Plus Plus",
-    "version": "0.18",
+    "version": "0.19",
     "description": "Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.",
     "permissions": ["scripting", "activeTab", "notifications", "storage"],
     "host_permissions": [
