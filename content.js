@@ -525,6 +525,157 @@ function embedGifs(messageElement) {
         }
     }
 }
+
+// --- Nickname Functions ---
+
+/**
+ * Retrieves nicknames from localStorage.
+ * @returns {object} The nicknames object.
+ */
+function getNicknames() {
+  try {
+    const nicknames = localStorage.getItem('elvantoPlusPlus_nicknames');
+    return nicknames ? JSON.parse(nicknames) : {};
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Error getting nicknames from localStorage:", error);
+    }
+    return {};
+  }
+}
+
+/**
+ * Saves nicknames to localStorage.
+ * @param {object} nicknames - The nicknames object to save.
+ */
+function saveNicknames(nicknames) {
+  try {
+    localStorage.setItem('elvantoPlusPlus_nicknames', JSON.stringify(nicknames));
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Error saving nicknames to localStorage:", error);
+    }
+  }
+}
+
+/**
+ * Updates the display name for a user across all their chat messages.
+ * @param {string} personId - The user's person ID.
+ * @param {string} newNickname - The new nickname to display.
+ */
+function updateDisplayNameForUser(personId, newNickname) {
+  const messages = document.querySelectorAll(`.chat .content ol li[data-person-id="${personId}"]`);
+  messages.forEach(message => {
+    const nameElement = message.querySelector('.name');
+    if (nameElement) {
+      const textNode = Array.from(nameElement.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) {
+        // If we haven't stored the original name yet, do it now.
+        if (!nameElement.dataset.originalName) {
+          const originalName = textNode.textContent.split(' - ')[0]?.trim();
+          if (originalName) {
+            nameElement.dataset.originalName = originalName;
+          }
+        }
+        // Update the display name
+        textNode.textContent = `${newNickname} - `;
+      }
+    }
+  });
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Updated display name for person ${personId} to "${newNickname}"`);
+    }
+}
+
+/**
+ * Processes a /nick command from a message.
+ * @param {HTMLElement} messageElement - The div.text element containing the command.
+ */
+function handleNickCommand(messageElement) {
+    const liElement = messageElement.closest('li');
+    if (!liElement) return;
+
+    const personId = liElement.dataset.personId;
+    const timestamp = parseInt(liElement.dataset.time, 10);
+    const messageText = messageElement.textContent.trim();
+    const match = messageText.match(/^\/nick\s+(.+)/i);
+
+    if (!personId || !timestamp || !match) return;
+
+    const newNickname = match[1].trim();
+
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Processing /nick command for ${personId}: "${newNickname}" at ${timestamp}`);
+    }
+
+    const nicknames = getNicknames();
+    const currentUserNick = nicknames[personId];
+
+    if (!currentUserNick || timestamp > currentUserNick.timestamp) {
+        nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
+        saveNicknames(nicknames);
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Saved new nickname for ${personId}: "${newNickname}"`);
+        }
+        updateDisplayNameForUser(personId, newNickname);
+    } else {
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Ignored older /nick command for ${personId}.`);
+        }
+    }
+}
+
+/**
+ * Scans all messages on page load to process /nick commands and apply the latest ones.
+ */
+function scanAndApplyNicknames() {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Scanning all messages for /nick commands and applying nicknames.");
+    }
+    const allMessages = document.querySelectorAll('.chat .content ol div.text');
+    const nicknames = getNicknames();
+    const personIdsWithNicknames = new Set(Object.keys(nicknames));
+
+    // First pass: find all /nick commands and update the nicknames object if a newer one is found.
+    allMessages.forEach(message => {
+        const messageText = message.textContent.trim();
+        if (messageText.toLowerCase().startsWith('/nick ')) {
+            const liElement = message.closest('li');
+            if (!liElement) return;
+
+            const personId = liElement.dataset.personId;
+            const timestamp = parseInt(liElement.dataset.time, 10);
+            const match = messageText.match(/^\/nick\s+(.+)/i);
+
+            if (!personId || !timestamp || !match) return;
+
+            const newNickname = match[1].trim();
+            const currentUserNick = nicknames[personId];
+
+            if (!currentUserNick || timestamp > currentUserNick.timestamp) {
+                nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
+                personIdsWithNicknames.add(personId); // Make sure this person's name gets updated
+            }
+        }
+    });
+
+    // Save the potentially updated nicknames from the scan
+    saveNicknames(nicknames);
+
+    // Second pass: apply the correct, latest nicknames to all users who have one.
+    personIdsWithNicknames.forEach(personId => {
+        if (nicknames[personId]) {
+            updateDisplayNameForUser(personId, nicknames[personId].nickname);
+        }
+    });
+     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Finished scanning and applying nicknames.");
+    }
+}
+
+// --- End of Nickname Functions ---
+
+
 // Function to toggle GIF preview visibility
 function toggleGifPreviewVisibility(messages, shouldHide) {
     try {
@@ -838,8 +989,9 @@ function colorChatNames() {
       return;
     }
 
-    // Extract the person's name from the name element
-    const nameText = nameElement.textContent.split(' - ')[0]?.trim();
+    // Use the original name if it's stored, otherwise get it from the text content.
+    const nameText = nameElement.dataset.originalName || nameElement.textContent.split(' - ')[0]?.trim();
+
     if (!nameText) {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
         console.log("Could not extract name from message");
@@ -1069,89 +1221,8 @@ function initExtension(retries = 10) {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
         console.error("Chat container not found for observers");
       }
+      return; // Stop execution if chat is not found
     }
-
-    // Color chat names based on roles
-    colorChatNames();
-
-    // Observe chat for new messages to color names
-    if (chatContainer) {
-      const nameColorObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes) {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.classList.contains('name')) {
-                  colorChatNames(); // Re-run for new names
-                } else {
-                  const newNames = node.querySelectorAll('.name');
-                  if (newNames.length > 0) {
-                    colorChatNames(); // Re-run for new names
-                  }
-                }
-              }
-            });
-          }
-        });
-      });
-
-      nameColorObserver.observe(chatContainer, { childList: true, subtree: true });
-      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("Chat name color observer started");
-      }
-    }
-
-    // Track hide slash commands toggle state
-    let hideSlashCommands = false;
-
-    // Function to hide or show slash command messages
-    const toggleSlashCommandVisibility = (messages, shouldHide) => {
-      messages.forEach(message => {
-        const messageText = message.textContent.trim();
-        const liElement = message.closest('li');
-        if (liElement) {
-          if (shouldHide && messageText.startsWith('/')) {
-            liElement.style.display = 'none';
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Hid slash command message: ${messageText}`);
-            }
-          } else if (!shouldHide && messageText.startsWith('/')) {
-            liElement.style.display = '';
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Showed slash command message: ${messageText}`);
-            }
-          }
-        }
-      });
-    };
-
-    // Function to check mentions in initial messages
-    const checkMessagesForMentions = (messages) => {
-      messages.forEach(message => {
-        embedGifs(message);
-        const messageText = message.textContent.trim();
-        const liElement = message.closest('li');
-        if (hideSlashCommands && messageText.startsWith('/')) {
-          if (liElement) {
-            liElement.style.display = 'none';
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Hid slash command message: ${messageText}`);
-            }
-          }
-        } else if (mentionRegex && mentionRegex.test(messageText)) {
-          message.classList.add('mentioned');
-          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log(`Highlighted mention: ${messageText}`);
-          }
-          // Show OS notification
-          const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
-          showNotification(`Mention in Elvanto Live`, {
-            body: `${senderName}: ${messageText}`,
-            icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png'
-          });
-        }
-      });
-    };
 
     // Function to check commands and mentions in new messages
     const checkMessagesForCommands = (messages) => {
@@ -1161,7 +1232,7 @@ function initExtension(retries = 10) {
           const messageText = message.textContent.trim();
           const liElement = message.closest('li');
           if (liElement) {
-            const senderNameRaw = liElement.querySelector('.name')?.textContent.split(' - ')[0]?.trim();
+            const senderNameRaw = liElement.querySelector('.name')?.dataset.originalName || liElement.querySelector('.name')?.textContent.split(' - ')[0]?.trim();
             if (!senderNameRaw) {
               if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
                 console.log("Sender name not found in message");
@@ -1181,6 +1252,13 @@ function initExtension(retries = 10) {
               }
             }
 
+            if(canUseFeature("Command", "/nick", window.elvantoUserRoles))
+            {
+            const nickCommandRegex = /^\/nick\s+/i;
+            if (nickCommandRegex.test(messageText)) {
+              handleNickCommand(message);
+            } 
+            }
             if (messageText.toLowerCase() === "/refresh") {
               // Normalize sender name to match roster format
               const normalizedSender = toLastnameFirstname(senderName);
@@ -1232,7 +1310,6 @@ function initExtension(retries = 10) {
                 console.log(`Highlighted mention: ${messageText}`);
               }
               // Show OS notification
-              const senderName = liElement?.querySelector('.name')?.textContent.split(' - ')[0]?.trim() || 'Unknown';
               showNotification(`Mention in Elvanto Live`, {
                 body: `${senderName}: ${messageText}`,
                 icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png'
@@ -1247,34 +1324,63 @@ function initExtension(retries = 10) {
       }
     };
 
-    // Highlight existing messages and check for mentions
-    if (chatContainer) {
-      const initialMessages = chatContainer.querySelectorAll('div.text');
-      checkMessagesForMentions(initialMessages);
+    // === Initial Page Load Processing ===
+    // 1. Color all names based on roles
+    colorChatNames();
+    // 2. Scan for all /nick commands, and apply the latest stored nicknames
+    scanAndApplyNicknames();
+    // 3. Embed GIFs in messages that were present on page load
+    const initialMessages = chatContainer.querySelectorAll('div.text');
+    initialMessages.forEach(embedGifs);
 
-      // Monitor new messages
-      const messageObserver = new MutationObserver((mutations) => {
+    // === Set up a single observer for new messages ===
+    const chatObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
-          if (mutation.addedNodes) {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.classList.contains('text')) {
-                  checkMessagesForCommands([node]);
-                } else {
-                  const newMessages = node.querySelectorAll('div.text');
-                  checkMessagesForCommands(newMessages);
-                }
-              }
-            });
-          }
-        });
-      });
+            if (mutation.addedNodes) {
+                mutation.addedNodes.forEach((node) => {
+                    // We only care about new <li> elements being added
+                    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'LI') {
+                        const newMessages = node.querySelectorAll('div.text');
+                        
+                        // Process commands, GIFs, mentions on the new message
+                        checkMessagesForCommands(newMessages);
 
-      messageObserver.observe(chatContainer, { childList: true, subtree: true });
-      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("Chat message observer started");
-      }
+                        // Recolor all names to catch the new message
+                        colorChatNames();
+                    }
+                });
+            }
+        });
+    });
+
+    chatObserver.observe(chatContainer, { childList: true });
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Unified chat message observer started");
     }
+
+    // Track hide slash commands toggle state
+    let hideSlashCommands = false;
+
+    // Function to hide or show slash command messages
+    const toggleSlashCommandVisibility = (messages, shouldHide) => {
+      messages.forEach(message => {
+        const messageText = message.textContent.trim();
+        const liElement = message.closest('li');
+        if (liElement) {
+          if (shouldHide && messageText.startsWith('/')) {
+            liElement.style.display = 'none';
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.log(`Hid slash command message: ${messageText}`);
+            }
+          } else if (!shouldHide && messageText.startsWith('/')) {
+            liElement.style.display = '';
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.log(`Showed slash command message: ${messageText}`);
+            }
+          }
+        }
+      });
+    };
 
     // Inject toggles into dropdown menu
     const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');

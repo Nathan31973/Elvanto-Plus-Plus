@@ -1,4 +1,4 @@
-# Elvanto Plus Plus Alpha V0.19
+# Elvanto Plus Plus Alpha V0.20
 
 Enhance Elvanto Live Chat with helpful text chat features found in modern text apps.
 
@@ -16,6 +16,7 @@ Enhance Elvanto Live Chat with helpful text chat features found in modern text a
 ## Chat Commands
 - [x] @FirstNameLastName, @name, @everyone, @all or @Role (mention person by first, last or full name. that message bubble will be orange for that user)
 - [x] /refresh (Refresh all user webpage. User that is in control of the service. Usefull for runsheet updates)
+- [x] /nick {Nickname} (Allow you to change your name to a nick name. Running this command blank will remove nickname. Support Emoji)
 - [ ] Rich text (standerd discord text chat features in elvanto chat)
 - [ ] Auto fill commands (@someone needs this)
 
