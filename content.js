@@ -2,6 +2,12 @@ console.log("Evanto Live Plus Plus By Nathan3197");
 console.log("Current URL:", window.location.href);
 console.log("Window.Live:", window.Live);
 
+// Global state variables
+let hideSlashCommands = false; // Track slash command visibility toggle state
+let hideGifPreviews = false; // Track GIF preview toggle state
+let notificationsEnabled = false; // Track notification toggle state
+let lastRefreshTime = null; // Track last refresh timestamp
+
 if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Elvanto live page matched!");
 } else {
@@ -132,6 +138,13 @@ function injectGifBrowserCSS() {
     .gif-loading-text {
         color: #b9bbbe;
     }
+
+    /* Style for last-refresh element */
+    .last-refresh {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #b9bbbe;
+    }
   `;
   const styleSheet = document.createElement("style");
   styleSheet.type = "text/css";
@@ -150,8 +163,8 @@ async function fetchAndDisplayGifs(query = 'trending') {
 
   // IMPORTANT: You should get your own API key from Tenor (https://tenor.com/developer/keyregistration)
   // The key below is a public test key from Tenor's documentation and may be rate-limited or disabled.
-  const API_KEY = 'APIKEY';
-  const CLIENT_KEY = 'APIKEY'; // A descriptive client key
+  const API_KEY = 'ENTERAPIKEY';
+  const CLIENT_KEY = 'ENTERAPIKEY'; // A descriptive client key
   const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=${CLIENT_KEY}&limit=30`;
 
   try {
@@ -378,7 +391,7 @@ function canUseFeature(featureType, featureName, roles) {
       console.log(`Raw user roles: ${roles ? roles.join(', ') : 'undefined'}`);
       console.log(`Processed user roles: ${userRoles.join(', ')}`);
       console.log(`Available permission roles: ${window.permissions && window.permissions.Roles ? Object.keys(window.permissions.Roles).join(', ') : 'none'}`);
-      console.log(` Perspectives structure: ${JSON.stringify(window.permissions, null, 2)}`);
+      console.log(`Perspectives structure: ${JSON.stringify(window.permissions, null, 2)}`);
       console.log(`localStorage.elvantoRoles: ${localStorage.getItem('elvantoRoles') || 'empty'}`);
     }
 
@@ -472,58 +485,57 @@ function correctDescriptionStyles(elements) {
 }
 
 // Function to find and embed GIF links in chat messages
-let hideGifPreviews = false; // Track GIF preview toggle state
 function embedGifs(messageElement) {
-    if (messageElement.dataset.gifsProcessed) {
-        return;
-    }
+  if (messageElement.dataset.gifsProcessed) {
+    return;
+  }
 
-    const gifRegex = /(https?:\/\/[^\s"]+\.gif)/gi;
+  const gifRegex = /(https?:\/\/[^\s"]+\.gif)/gi;
 
-    if (gifRegex.test(messageElement.innerHTML)) {
-        try {
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.log("Found GIF link in message:", messageElement.textContent);
-            }
+  if (gifRegex.test(messageElement.innerHTML)) {
+    try {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Found GIF link in message:", messageElement.textContent);
+      }
 
-            // Store original message if not already stored
-            if (!messageElement.dataset.originalText) {
-                messageElement.dataset.originalText = messageElement.innerHTML;
-            }
+      // Store original message if not already stored
+      if (!messageElement.dataset.originalText) {
+        messageElement.dataset.originalText = messageElement.innerHTML;
+      }
 
-            if (hideGifPreviews) {
-                // Replace entire message with placeholder when hideGifPreviews is enabled
-                messageElement.innerHTML = '{Has sent a gif}';
-                messageElement.dataset.gifsProcessed = 'true';
-                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("GIF message replaced with '{Has sent a gif}' due to hideGifPreviews");
-                }
-            } else {
-                // Embed GIF as before
-                messageElement.innerHTML = messageElement.innerHTML.replace(gifRegex, (match) => {
-                    try {
-                        const url = new URL(match);
-                        return `<a href="${url.href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; word-break: break-all;">
-                            <img src="${url.href}" class="embedded-gif" alt="Embedded GIF" style="display: block; max-width: 250px; max-height: 200px; border-radius: 4px; margin-top: 5px;" />
-                        </a>`;
-                    } catch (e) {
-                        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                            console.error("Malformed URL for GIF embedding:", match, e);
-                        }
-                        return match;
-                    }
-                });
-                messageElement.dataset.gifsProcessed = 'true';
-                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("GIF embedded in message");
-                }
-            }
-        } catch (error) {
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.error("Error in embedGifs:", error);
-            }
+      if (hideGifPreviews) {
+        // Replace entire message with placeholder when hideGifPreviews is enabled
+        messageElement.innerHTML = '{Has sent a gif}';
+        messageElement.dataset.gifsProcessed = 'true';
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log("GIF message replaced with '{Has sent a gif}' due to hideGifPreviews");
         }
+      } else {
+        // Embed GIF as before
+        messageElement.innerHTML = messageElement.innerHTML.replace(gifRegex, (match) => {
+          try {
+            const url = new URL(match);
+            return `<a href="${url.href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; word-break: break-all;">
+              <img src="${url.href}" class="embedded-gif" alt="Embedded GIF" style="display: block; max-width: 250px; max-height: 200px; border-radius: 4px; margin-top: 5px;" />
+            </a>`;
+          } catch (e) {
+            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+              console.error("Malformed URL for GIF embedding:", match, e);
+            }
+            return match;
+          }
+        });
+        messageElement.dataset.gifsProcessed = 'true';
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log("GIF embedded in message");
+        }
+      }
+    } catch (error) {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Error in embedGifs:", error);
+      }
     }
+  }
 }
 
 // --- Nickname Functions ---
@@ -538,7 +550,7 @@ function getNicknames() {
     return nicknames ? JSON.parse(nicknames) : {};
   } catch (error) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.error("Error getting nicknames from localStorage:", error);
+      console.error("Error getting nicknames from localStorage:", error);
     }
     return {};
   }
@@ -553,7 +565,7 @@ function saveNicknames(nicknames) {
     localStorage.setItem('elvantoPlusPlus_nicknames', JSON.stringify(nicknames));
   } catch (error) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.error("Error saving nicknames to localStorage:", error);
+      console.error("Error saving nicknames to localStorage:", error);
     }
   }
 }
@@ -582,9 +594,9 @@ function updateDisplayNameForUser(personId, newNickname) {
       }
     }
   });
-    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`Updated display name for person ${personId} to "${newNickname}"`);
-    }
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Updated display name for person ${personId} to "${newNickname}"`);
+  }
 }
 
 /**
@@ -592,125 +604,152 @@ function updateDisplayNameForUser(personId, newNickname) {
  * @param {HTMLElement} messageElement - The div.text element containing the command.
  */
 function handleNickCommand(messageElement) {
-    const liElement = messageElement.closest('li');
-    if (!liElement) return;
+  const liElement = messageElement.closest('li');
+  if (!liElement) return;
 
-    const personId = liElement.dataset.personId;
-    const timestamp = parseInt(liElement.dataset.time, 10);
-    const messageText = messageElement.textContent.trim();
-    const match = messageText.match(/^\/nick\s+(.+)/i);
+  const personId = liElement.dataset.personId;
+  const timestamp = parseInt(liElement.dataset.time, 10);
+  const messageText = messageElement.textContent.trim();
+  const match = messageText.match(/^\/nick\s+(.+)/i);
 
-    if (!personId || !timestamp || !match) return;
+  if (!personId || !timestamp || !match) return;
 
-    const newNickname = match[1].trim();
+  const newNickname = match[1].trim();
 
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`Processing /nick command for ${personId}: "${newNickname}" at ${timestamp}`);
+  }
+
+  const nicknames = getNicknames();
+  const currentUserNick = nicknames[personId];
+
+  if (!currentUserNick || timestamp > currentUserNick.timestamp) {
+    nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
+    saveNicknames(nicknames);
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log(`Processing /nick command for ${personId}: "${newNickname}" at ${timestamp}`);
+      console.log(`Saved new nickname for ${personId}: "${newNickname}"`);
     }
-
-    const nicknames = getNicknames();
-    const currentUserNick = nicknames[personId];
-
-    if (!currentUserNick || timestamp > currentUserNick.timestamp) {
-        nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
-        saveNicknames(nicknames);
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log(`Saved new nickname for ${personId}: "${newNickname}"`);
-        }
-        updateDisplayNameForUser(personId, newNickname);
-    } else {
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log(`Ignored older /nick command for ${personId}.`);
-        }
+    updateDisplayNameForUser(personId, newNickname);
+  } else {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Ignored older /nick command for ${personId}.`);
     }
+  }
 }
 
 /**
  * Scans all messages on page load to process /nick commands and apply the latest ones.
  */
 function scanAndApplyNicknames() {
-    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("Scanning all messages for /nick commands and applying nicknames.");
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Scanning all messages for /nick commands and applying nicknames.");
+  }
+  const allMessages = document.querySelectorAll('.chat .content ol div.text');
+  const nicknames = getNicknames();
+  const personIdsWithNicknames = new Set(Object.keys(nicknames));
+
+  // First pass: find all /nick commands and update the nicknames object if a newer one is found.
+  allMessages.forEach(message => {
+    const messageText = message.textContent.trim();
+    if (messageText.toLowerCase().startsWith('/nick ')) {
+      const liElement = message.closest('li');
+      if (!liElement) return;
+
+      const personId = liElement.dataset.personId;
+      const timestamp = parseInt(liElement.dataset.time, 10);
+      const match = messageText.match(/^\/nick\s+(.+)/i);
+
+      if (!personId || !timestamp || !match) return;
+
+      const newNickname = match[1].trim();
+      const currentUserNick = nicknames[personId];
+
+      if (!currentUserNick || timestamp > currentUserNick.timestamp) {
+        nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
+        personIdsWithNicknames.add(personId); // Make sure this person's name gets updated
+      }
     }
-    const allMessages = document.querySelectorAll('.chat .content ol div.text');
-    const nicknames = getNicknames();
-    const personIdsWithNicknames = new Set(Object.keys(nicknames));
+  });
 
-    // First pass: find all /nick commands and update the nicknames object if a newer one is found.
-    allMessages.forEach(message => {
-        const messageText = message.textContent.trim();
-        if (messageText.toLowerCase().startsWith('/nick ')) {
-            const liElement = message.closest('li');
-            if (!liElement) return;
+  // Save the potentially updated nicknames from the scan
+  saveNicknames(nicknames);
 
-            const personId = liElement.dataset.personId;
-            const timestamp = parseInt(liElement.dataset.time, 10);
-            const match = messageText.match(/^\/nick\s+(.+)/i);
-
-            if (!personId || !timestamp || !match) return;
-
-            const newNickname = match[1].trim();
-            const currentUserNick = nicknames[personId];
-
-            if (!currentUserNick || timestamp > currentUserNick.timestamp) {
-                nicknames[personId] = { nickname: newNickname, timestamp: timestamp };
-                personIdsWithNicknames.add(personId); // Make sure this person's name gets updated
-            }
-        }
-    });
-
-    // Save the potentially updated nicknames from the scan
-    saveNicknames(nicknames);
-
-    // Second pass: apply the correct, latest nicknames to all users who have one.
-    personIdsWithNicknames.forEach(personId => {
-        if (nicknames[personId]) {
-            updateDisplayNameForUser(personId, nicknames[personId].nickname);
-        }
-    });
-     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.log("Finished scanning and applying nicknames.");
+  // Second pass: apply the correct, latest nicknames to all users who have one.
+  personIdsWithNicknames.forEach(personId => {
+    if (nicknames[personId]) {
+      updateDisplayNameForUser(personId, nicknames[personId].nickname);
     }
+  });
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log("Finished scanning and applying nicknames.");
+  }
 }
 
 // --- End of Nickname Functions ---
 
-
 // Function to toggle GIF preview visibility
 function toggleGifPreviewVisibility(messages, shouldHide) {
-    try {
-        messages.forEach(message => {
-            const liElement = message.closest('li');
-            if (!liElement) return;
+  try {
+    messages.forEach(message => {
+      const liElement = message.closest('li');
+      if (!liElement) return;
 
-            if (shouldHide) {
-                if (message.dataset.originalText && /(https?:\/\/[^\s"]+\.gif)/gi.test(message.dataset.originalText)) {
-                    message.innerHTML = '{Has sent a gif}';
-                    message.dataset.gifsProcessed = 'true';
-                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                        console.log(`Replaced GIF message with '{Has sent a gif}' for: ${message.textContent.substring(0, 50)}...`);
-                    }
-                }
-            } else {
-                if (message.dataset.originalText) {
-                    message.innerHTML = message.dataset.originalText; // Restore original content
-                    message.dataset.gifsProcessed = '';
-                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                        console.log(`Restored original message content for: ${message.textContent.substring(0, 50)}...`);
-                    }
-                    embedGifs(message); // Reprocess for GIF embedding
-                    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                        console.log(`Reprocessed GIF embedding for message: ${message.textContent.substring(0, 50)}...`);
-                    }
-                }
-            }
-        });
-    } catch (error) {
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.error("Error in toggleGifPreviewVisibility:", error);
+      if (shouldHide) {
+        if (message.dataset.originalText && /(https?:\/\/[^\s"]+\.gif)/gi.test(message.dataset.originalText)) {
+          message.innerHTML = '{Has sent a gif}';
+          message.dataset.gifsProcessed = 'true';
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Replaced GIF message with '{Has sent a gif}' for: ${message.textContent.substring(0, 50)}...`);
+          }
         }
+      } else {
+        if (message.dataset.originalText) {
+          message.innerHTML = message.dataset.originalText; // Restore original content
+          message.dataset.gifsProcessed = '';
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Restored original message content for: ${message.textContent.substring(0, 50)}...`);
+          }
+          embedGifs(message); // Reprocess for GIF embedding
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Reprocessed GIF embedding for message: ${message.textContent.substring(0, 50)}...`);
+          }
+        }
+      }
+    });
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Error in toggleGifPreviewVisibility:", error);
     }
+  }
 }
+
+// Function to toggle slash command visibility
+function toggleSlashCommandVisibility(messages, shouldHide) {
+  try {
+    messages.forEach(message => {
+      const messageText = message.textContent.trim();
+      const liElement = message.closest('li');
+      if (liElement) {
+        if (shouldHide && messageText.startsWith('/')) {
+          liElement.style.display = 'none';
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Hid slash command message: ${messageText}`);
+          }
+        } else if (!shouldHide && messageText.startsWith('/')) {
+          liElement.style.display = '';
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log(`Showed slash command message: ${messageText}`);
+          }
+        }
+      }
+    });
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Error in toggleSlashCommandVisibility:", error);
+    }
+  }
+}
+
 // Function to create Refresh button
 function createRefreshButton(context) {
   const refreshButton = document.createElement('button');
@@ -890,7 +929,6 @@ function requestNotificationPermission() {
 }
 
 // Function to show a notification
-let notificationsEnabled = false; // Track notification toggle state
 function showNotification(title, options) {
   if (!window.isFeatureEnabled || !window.isFeatureEnabled("Notification")) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -945,28 +983,99 @@ function showNotification(title, options) {
 }
 
 // Function to create Last Refresh element
-function createLastRefreshElement() {
+function createLastRefreshElement(context, retries = 3) {
   if (!window.isFeatureEnabled || !window.isFeatureEnabled("LastRefresh")) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-      console.log("LastRefresh disabled by kill switch");
+      console.log(`LastRefresh disabled by kill switch in ${context}`);
     }
     return null;
   }
 
-  const now = new Date();
-  const timeString = now.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  });
+  const liveControlDiv = document.querySelector(context === 'controls-wrapper' ? '.controls-wrapper .live-control' : '.overview.content .live-control');
+  if (!liveControlDiv) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Live control div not found for LastRefresh in ${context}, ${retries} retries left`);
+    }
+    if (retries > 0) {
+      setTimeout(() => createLastRefreshElement(context, retries - 1), 500);
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error(`Failed to find live control div for LastRefresh in ${context} after retries`);
+      }
+    }
+    return null;
+  }
+
+  // Check if the element already exists to avoid recreating it
+  const existingElement = liveControlDiv.querySelector('.last-refresh');
+  if (existingElement) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`LastRefresh element already exists in ${context}`);
+    }
+    return existingElement;
+  }
+
   const div = document.createElement('div');
   div.className = 'last-refresh';
-  div.textContent = `Last Runsheet Update: ${timeString}`;
-  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-    console.log(`Created LastRefresh element: ${div.textContent}`);
+  div.textContent = `Last Runsheet Update: just now`;
+
+  // Set the initial refresh time if not already set
+  if (!lastRefreshTime) {
+    lastRefreshTime = new Date();
   }
+
+  // Append to the live-control div
+  liveControlDiv.appendChild(div);
+  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+    console.log(`LastRefresh element created and appended in ${context}`);
+  }
+
+  // Start or update timer to keep text updated
+  const updateTimestamp = () => {
+    const allLastRefreshElements = document.querySelectorAll('.last-refresh');
+    allLastRefreshElements.forEach(elem => {
+      if (lastRefreshTime) {
+        elem.textContent = `Last Runsheet Update: ${timeAgo(lastRefreshTime)}`;
+      }
+    });
+  };
+
+  // Clear any existing interval to prevent duplicates
+  if (window.lastRefreshInterval) {
+    clearInterval(window.lastRefreshInterval);
+  }
+  window.lastRefreshInterval = setInterval(updateTimestamp, 60000); // Update every 60 seconds
+
   return div;
+}
+
+function timeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  
+  let interval = seconds / 31536000;
+  if (interval > 1) {
+    return Math.floor(interval) + " year" + (Math.floor(interval) === 1 ? "" : "s") + " ago";
+  }
+  interval = seconds / 2592000;
+  if (interval > 1) {
+    return Math.floor(interval) + " month" + (Math.floor(interval) === 1 ? "" : "s") + " ago";
+  }
+  interval = seconds / 86400;
+  if (interval > 1) {
+    return Math.floor(interval) + " day" + (Math.floor(interval) === 1 ? "" : "s") + " ago";
+  }
+  interval = seconds / 3600;
+  if (interval > 1) {
+    return Math.floor(interval) + " hour" + (Math.floor(interval) === 1 ? "" : "s") + " ago";
+  }
+  interval = seconds / 60;
+  if (interval > 1) {
+    return Math.floor(interval) + " minute" + (Math.floor(interval) === 1 ? "" : "s") + " ago";
+  }
+  if (seconds < 10) {
+    return "just now";
+  }
+  return Math.floor(seconds) + " second" + (Math.floor(seconds) === 1 ? "" : "s") + " ago";
 }
 
 // Function to color chat names based on roles
@@ -1041,6 +1150,244 @@ function colorChatNames() {
       }
     }
   });
+}
+
+/**
+ * Retrieves toggle states from localStorage for a specific user.
+ * @param {string} username - The username to namespace the storage key.
+ * @returns {object} The toggle states object.
+ */
+function getToggleStates(username) {
+  try {
+    const key = `elvantoPlusPlus_toggles_${username}`;
+    const states = localStorage.getItem(key);
+    return states ? JSON.parse(states) : {};
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Error getting toggle states from localStorage:", error);
+    }
+    return {};
+  }
+}
+
+/**
+ * Saves toggle states to localStorage for a specific user.
+ * @param {string} username - The username to namespace the storage key.
+ * @param {object} states - The toggle states to save.
+ */
+function saveToggleStates(username, states) {
+  try {
+    const key = `elvantoPlusPlus_toggles_${username}`;
+    localStorage.setItem(key, JSON.stringify(states));
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Saved toggle states for ${username}:`, states);
+    }
+  } catch (error) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.error("Error saving toggle states to localStorage:", error);
+    }
+  }
+}
+
+// Function to inject toggles with retry mechanism
+function injectToggles(username, userRoles, retries = 3) {
+  const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
+  if (!dropdownMenu) {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Dropdown menu not found for toggle injection, ${retries} retries left`);
+    }
+    if (retries > 0) {
+      setTimeout(() => injectToggles(username, userRoles, retries - 1), 500);
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.error("Dropdown menu not found after retries, toggles not injected");
+      }
+    }
+    return;
+  }
+
+  // Notification toggle
+  if ('Notification' in window && canUseFeature("SettingToggle", "Notification", userRoles)) {
+    if (!dropdownMenu.querySelector('[data-live-action="toggle-notifications"]')) {
+      const notificationItem = document.createElement('li');
+      notificationItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-notifications">
+          <div class="custom-checkbox${Notification.permission === 'granted' ? ' checked' : ''}">
+            <i class="fa fa-check"></i>
+          </div>
+          Notifications
+        </label>
+      `;
+      dropdownMenu.appendChild(notificationItem);
+
+      const notificationLabel = notificationItem.querySelector('label');
+      const checkboxDiv = notificationItem.querySelector('.custom-checkbox');
+
+      // Initialize notificationsEnabled based on checkbox state
+      notificationsEnabled = Notification.permission === 'granted' && checkboxDiv.classList.contains('checked');
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log(`Initial notificationsEnabled: ${notificationsEnabled}`);
+      }
+
+      notificationLabel.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent default dropdown behavior
+        const isChecked = checkboxDiv.classList.contains('checked');
+
+        if (!isChecked) {
+          // Request permission when enabling
+          requestNotificationPermission().then(granted => {
+            if (granted) {
+              checkboxDiv.classList.add('checked');
+              notificationsEnabled = true;
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("Notifications enabled by user");
+              }
+            } else {
+              checkboxDiv.classList.remove('checked');
+              notificationsEnabled = false;
+              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+                console.log("User denied notification permission");
+              }
+              alert("Notifications were not enabled. You can enable them in your browser settings.");
+            }
+          });
+        } else {
+          // Disable notifications
+          checkboxDiv.classList.remove('checked');
+          notificationsEnabled = false;
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Notifications disabled by user");
+          }
+          alert("Notifications disabled. You can re-enable them here or in your browser settings.");
+        }
+      });
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Notification toggle injected");
+      }
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Notification toggle already exists");
+      }
+    }
+  } else {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("Notifications API not supported or disabled by kill switch/permissions");
+    }
+  }
+
+  // Hide slash commands toggle
+  if (canUseFeature("SettingToggle", "HideCommands", userRoles)) {
+    if (!dropdownMenu.querySelector('[data-live-action="toggle-hide-slash-commands"]')) {
+      const hideSlashItem = document.createElement('li');
+      hideSlashItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-hide-slash-commands">
+          <div class="custom-checkbox${hideSlashCommands ? ' checked' : ''}">
+            <i class="fa fa-check"></i>
+          </div>
+          Hide Commands In Chat
+        </label>
+      `;
+      dropdownMenu.appendChild(hideSlashItem);
+
+      const hideSlashLabel = hideSlashItem.querySelector('label');
+      const hideSlashCheckboxDiv = hideSlashItem.querySelector('.custom-checkbox');
+
+      hideSlashLabel.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent default dropdown behavior
+        const isChecked = hideSlashCheckboxDiv.classList.contains('checked');
+
+        if (!isChecked) {
+          hideSlashCheckboxDiv.classList.add('checked');
+          hideSlashCommands = true;
+          saveToggleStates(username, { hideSlashCommands: true, hideGifPreviews });
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide slash commands enabled");
+          }
+          // Hide slash commands
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleSlashCommandVisibility(allMessages, true);
+        } else {
+          hideSlashCheckboxDiv.classList.remove('checked');
+          hideSlashCommands = false;
+          saveToggleStates(username, { hideSlashCommands: false, hideGifPreviews });
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide slash commands disabled");
+          }
+          // Show all previously hidden slash commands
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleSlashCommandVisibility(allMessages, false);
+        }
+      });
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Hide slash commands toggle injected");
+      }
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Hide slash commands toggle already exists");
+      }
+    }
+  } else {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("HideCommands toggle disabled by kill switch/permissions");
+    }
+  }
+
+  // Hide GIF previews toggle
+  if (canUseFeature("SettingToggle", "HideGifPreviews", userRoles)) {
+    if (!dropdownMenu.querySelector('[data-live-action="toggle-hide-gif-previews"]')) {
+      const hideGifItem = document.createElement('li');
+      hideGifItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-hide-gif-previews">
+          <div class="custom-checkbox${hideGifPreviews ? ' checked' : ''}">
+            <i class="fa fa-check"></i>
+          </div>
+          Hide GIF
+        </label>
+      `;
+      dropdownMenu.appendChild(hideGifItem);
+
+      const hideGifLabel = hideGifItem.querySelector('label');
+      const hideGifCheckboxDiv = hideGifItem.querySelector('.custom-checkbox');
+
+      hideGifLabel.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent default dropdown behavior
+        const isChecked = hideGifCheckboxDiv.classList.contains('checked');
+
+        if (!isChecked) {
+          hideGifCheckboxDiv.classList.add('checked');
+          hideGifPreviews = true;
+          saveToggleStates(username, { hideSlashCommands, hideGifPreviews: true });
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide GIF previews enabled");
+          }
+          // Hide GIF previews in messages
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleGifPreviewVisibility(allMessages, true);
+        } else {
+          hideGifCheckboxDiv.classList.remove('checked');
+          hideGifPreviews = false;
+          saveToggleStates(username, { hideSlashCommands, hideGifPreviews: false });
+          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+            console.log("Hide GIF previews disabled");
+          }
+          // Show GIF previews in messages
+          const allMessages = document.querySelectorAll('.chat .content ol div.text');
+          toggleGifPreviewVisibility(allMessages, false);
+        }
+      });
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Hide GIF toggle injected");
+      }
+    } else {
+      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+        console.log("Hide GIF toggle already exists");
+      }
+    }
+  } else {
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log("HideGifPreviews toggle disabled by kill switch/permissions");
+    }
+  }
 }
 
 // Function to initialize the extension
@@ -1121,6 +1468,14 @@ function initExtension(retries = 10) {
     const lastName = nameParts[nameParts.length - 1].toLowerCase();
     const fullMention = `${firstName}${lastName}`;
 
+    // Load toggle states from localStorage
+    const toggleStates = getToggleStates(username);
+    hideSlashCommands = toggleStates.hideSlashCommands || false;
+    hideGifPreviews = toggleStates.hideGifPreviews || false;
+    if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+      console.log(`Loaded toggle states for ${username}: hideSlashCommands=${hideSlashCommands}, hideGifPreviews=${hideGifPreviews}`);
+    }
+
     // Get user's roles and transform them for mentions
     const userRoles = window.elvantoUserRoles;
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -1175,36 +1530,9 @@ function initExtension(retries = 10) {
 
     // Inject Last Refresh timestamp
     if (window.isFeatureEnabled && window.isFeatureEnabled("LastRefresh")) {
-      const liveControlDivs = [
-        document.querySelector('.controls-wrapper .live-control'),
-        document.querySelector('.overview.content .live-control')
-      ].filter(div => div !== null);
-
-      liveControlDivs.forEach(liveControlDiv => {
-        if (!liveControlDiv) {
-          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log("Live control div not found for LastRefresh injection");
-          }
-          return;
-        }
-        if (!liveControlDiv.querySelector('.last-refresh')) {
-          const lastRefreshDiv = createLastRefreshElement();
-          if (lastRefreshDiv) {
-            liveControlDiv.appendChild(lastRefreshDiv);
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`LastRefresh timestamp injected into ${liveControlDiv.className}`);
-            }
-          } else {
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Failed to create LastRefresh element");
-            }
-          }
-        } else {
-          if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-            console.log(`LastRefresh timestamp already exists in ${liveControlDiv.className}`);
-          }
-        }
-      });
+      // Create LastRefresh elements for both locations
+      createLastRefreshElement('controls-wrapper');
+      createLastRefreshElement('overview');
     } else {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
         console.log("LastRefresh feature disabled by kill switch");
@@ -1223,6 +1551,19 @@ function initExtension(retries = 10) {
       }
       return; // Stop execution if chat is not found
     }
+
+    // Apply saved toggle states to initial messages
+    const initialMessages = chatContainer.querySelectorAll('div.text');
+    initialMessages.forEach(embedGifs);
+    if (hideSlashCommands) {
+      toggleSlashCommandVisibility(initialMessages, true);
+    }
+    if (hideGifPreviews) {
+      toggleGifPreviewVisibility(initialMessages, true);
+    }
+
+    // Inject toggles
+    injectToggles(username, userRoles);
 
     // Function to check commands and mentions in new messages
     const checkMessagesForCommands = (messages) => {
@@ -1252,12 +1593,11 @@ function initExtension(retries = 10) {
               }
             }
 
-            if(canUseFeature("Command", "/nick", window.elvantoUserRoles))
-            {
-            const nickCommandRegex = /^\/nick\s+/i;
-            if (nickCommandRegex.test(messageText)) {
-              handleNickCommand(message);
-            } 
+            if (canUseFeature("Command", "/nick", window.elvantoUserRoles)) {
+              const nickCommandRegex = /^\/nick\s+/i;
+              if (nickCommandRegex.test(messageText)) {
+                handleNickCommand(message);
+              }
             }
             if (messageText.toLowerCase() === "/refresh") {
               // Normalize sender name to match roster format
@@ -1276,6 +1616,8 @@ function initExtension(retries = 10) {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
                     console.log("Refresh command from current user with permission, reloading...");
                   }
+                  // Update lastRefreshTime before reloading
+                  lastRefreshTime = new Date();
                   location.reload();
                 } else {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -1288,6 +1630,8 @@ function initExtension(retries = 10) {
                 if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
                   console.log("Refresh command from sender with permission, reloading...");
                 }
+                // Update lastRefreshTime before reloading
+                lastRefreshTime = new Date();
                 location.reload();
               }
               // Check if sender is the controller
@@ -1297,6 +1641,8 @@ function initExtension(retries = 10) {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
                     console.log("Refresh command from controller, reloading...");
                   }
+                  // Update lastRefreshTime before reloading
+                  lastRefreshTime = new Date();
                   location.reload();
                 } else {
                   if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
@@ -1329,217 +1675,30 @@ function initExtension(retries = 10) {
     colorChatNames();
     // 2. Scan for all /nick commands, and apply the latest stored nicknames
     scanAndApplyNicknames();
-    // 3. Embed GIFs in messages that were present on page load
-    const initialMessages = chatContainer.querySelectorAll('div.text');
-    initialMessages.forEach(embedGifs);
 
     // === Set up a single observer for new messages ===
     const chatObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.addedNodes) {
-                mutation.addedNodes.forEach((node) => {
-                    // We only care about new <li> elements being added
-                    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'LI') {
-                        const newMessages = node.querySelectorAll('div.text');
-                        
-                        // Process commands, GIFs, mentions on the new message
-                        checkMessagesForCommands(newMessages);
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes) {
+          mutation.addedNodes.forEach((node) => {
+            // We only care about new <li> elements being added
+            if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'LI') {
+              const newMessages = node.querySelectorAll('div.text');
+              
+              // Process commands, GIFs, mentions on the new message
+              checkMessagesForCommands(newMessages);
 
-                        // Recolor all names to catch the new message
-                        colorChatNames();
-                    }
-                });
+              // Recolor all names to catch the new message
+              colorChatNames();
             }
-        });
+          });
+        }
+      });
     });
 
     chatObserver.observe(chatContainer, { childList: true });
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
       console.log("Unified chat message observer started");
-    }
-
-    // Track hide slash commands toggle state
-    let hideSlashCommands = false;
-
-    // Function to hide or show slash command messages
-    const toggleSlashCommandVisibility = (messages, shouldHide) => {
-      messages.forEach(message => {
-        const messageText = message.textContent.trim();
-        const liElement = message.closest('li');
-        if (liElement) {
-          if (shouldHide && messageText.startsWith('/')) {
-            liElement.style.display = 'none';
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Hid slash command message: ${messageText}`);
-            }
-          } else if (!shouldHide && messageText.startsWith('/')) {
-            liElement.style.display = '';
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Showed slash command message: ${messageText}`);
-            }
-          }
-        }
-      });
-    };
-
-    // Inject toggles into dropdown menu
-    const dropdownMenu = document.querySelector('ul.dropdown-menu.dropdown-menu-right');
-    if (dropdownMenu) {
-      // Notification toggle
-      if ('Notification' in window && canUseFeature("SettingToggle", "Notification", window.elvantoUserRoles)) {
-        const notificationItem = document.createElement('li');
-        notificationItem.innerHTML = `
-          <label class="custom-checkbox-label" data-live-action="toggle-notifications">
-            <div class="custom-checkbox${Notification.permission === 'granted' ? ' checked' : ''}">
-              <i class="fa fa-check"></i>
-            </div>
-            Notifications
-          </label>
-        `;
-        dropdownMenu.appendChild(notificationItem);
-
-        const notificationLabel = notificationItem.querySelector('label');
-        const checkboxDiv = notificationItem.querySelector('.custom-checkbox');
-
-        // Initialize notificationsEnabled based on checkbox state
-        notificationsEnabled = Notification.permission === 'granted' && checkboxDiv.classList.contains('checked');
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.log(`Initial notificationsEnabled: ${notificationsEnabled}`);
-        }
-
-        notificationLabel.addEventListener('click', (event) => {
-          event.preventDefault(); // Prevent default dropdown behavior
-          const isChecked = checkboxDiv.classList.contains('checked');
-
-          if (!isChecked) {
-            // Request permission when enabling
-            requestNotificationPermission().then(granted => {
-              if (granted) {
-                checkboxDiv.classList.add('checked');
-                notificationsEnabled = true;
-                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log("Notifications enabled by user");
-                }
-              } else {
-                checkboxDiv.classList.remove('checked');
-                notificationsEnabled = false;
-                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log("User denied notification permission");
-                }
-                alert("Notifications were not enabled. You can enable them in your browser settings.");
-              }
-            });
-          } else {
-            // Disable notifications
-            checkboxDiv.classList.remove('checked');
-            notificationsEnabled = false;
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Notifications disabled by user");
-            }
-            alert("Notifications disabled. You can re-enable them here or in your browser settings.");
-          }
-        });
-      } else {
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.log("Notifications API not supported or disabled by kill switch/permissions");
-        }
-      }
-
-      // Hide slash commands toggle
-      if (canUseFeature("SettingToggle", "HideCommands", window.elvantoUserRoles)) {
-        const hideSlashItem = document.createElement('li');
-        hideSlashItem.innerHTML = `
-          <label class="custom-checkbox-label" data-live-action="toggle-hide-slash-commands">
-            <div class="custom-checkbox">
-              <i class="fa fa-check"></i>
-            </div>
-            Hide Commands In Chat
-          </label>
-        `;
-        dropdownMenu.appendChild(hideSlashItem);
-
-        const hideSlashLabel = hideSlashItem.querySelector('label');
-        const hideSlashCheckboxDiv = hideSlashItem.querySelector('.custom-checkbox');
-
-        hideSlashLabel.addEventListener('click', (event) => {
-          event.preventDefault(); // Prevent default dropdown behavior
-          const isChecked = hideSlashCheckboxDiv.classList.contains('checked');
-
-          if (!isChecked) {
-            hideSlashCheckboxDiv.classList.add('checked');
-            hideSlashCommands = true;
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Hide slash commands enabled");
-            }
-            // Hide slash commands
-            const allMessages = document.querySelectorAll('.chat .content ol div.text');
-            toggleSlashCommandVisibility(allMessages, true);
-          } else {
-            hideSlashCheckboxDiv.classList.remove('checked');
-            hideSlashCommands = false;
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Hide slash commands disabled");
-            }
-            // Show all previously hidden slash commands
-            const allMessages = document.querySelectorAll('.chat .content ol div.text');
-            toggleSlashCommandVisibility(allMessages, false);
-          }
-        });
-      } else {
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.log("HideCommands toggle disabled by kill switch/permissions");
-        }
-      }
-
-      // Hide GIF previews toggle
-      if (canUseFeature("SettingToggle", "HideGifPreviews", window.elvantoUserRoles)) {
-        const hideGifItem = document.createElement('li');
-        hideGifItem.innerHTML = `
-          <label class="custom-checkbox-label" data-live-action="toggle-hide-gif-previews">
-            <div class="custom-checkbox">
-              <i class="fa fa-check"></i>
-            </div>
-            Hide GIF
-          </label>
-        `;
-        dropdownMenu.appendChild(hideGifItem);
-
-        const hideGifLabel = hideGifItem.querySelector('label');
-        const hideGifCheckboxDiv = hideGifItem.querySelector('.custom-checkbox');
-
-        hideGifLabel.addEventListener('click', (event) => {
-          event.preventDefault(); // Prevent default dropdown behavior
-          const isChecked = hideGifCheckboxDiv.classList.contains('checked');
-
-          if (!isChecked) {
-            hideGifCheckboxDiv.classList.add('checked');
-            hideGifPreviews = true;
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Hide GIF previews enabled");
-            }
-            // Hide GIF previews in messages
-            const allMessages = document.querySelectorAll('.chat .content ol div.text');
-            toggleGifPreviewVisibility(allMessages, true);
-          } else {
-            hideGifCheckboxDiv.classList.remove('checked');
-            hideGifPreviews = false;
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log("Hide GIF previews disabled");
-            }
-            // Show GIF previews in messages
-            const allMessages = document.querySelectorAll('.chat .content ol div.text');
-            toggleGifPreviewVisibility(allMessages, false);
-          }
-        });
-      } else {
-        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-          console.log("HideGifPreviews toggle disabled by kill switch/permissions");
-        }
-      }
-    } else {
-      if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-        console.error("Dropdown menu not found for toggles");
-      }
     }
   } catch (error) {
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
