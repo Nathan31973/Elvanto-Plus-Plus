@@ -3,10 +3,10 @@ console.log("Current URL:", window.location.href);
 console.log("Window.Live:", window.Live);
 
 // Global state variables
-let hideSlashCommands = false; // Track slash command visibility toggle state
-let hideGifPreviews = false; // Track GIF preview toggle state
-let notificationsEnabled = false; // Track notification toggle state
-let lastRefreshTime = null; // Track last refresh timestamp
+let hideSlashCommands = false;
+let hideGifPreviews = false;
+let notificationsEnabled = false;
+let lastRefreshTime = null;
 
 if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Elvanto live page matched!");
@@ -14,89 +14,67 @@ if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Not matching Elvanto live page.");
 }
 
-// --- GIF Browser Functions ---
+// ────────────────────────────────────────────────
+// GIF Browser Functions (unchanged)
+// ────────────────────────────────────────────────
 
-/**
- * Injects the necessary CSS for the GIF button and browser modal into the document's head.
- */
 function injectGifBrowserCSS() {
   const css = `
-    /* Style for the new GIF button */
     #gif-browser-btn {
       position: absolute;
       top: 4px;
-      right: 58px; /* Positioned to the left of the send button */
-      padding: 0;
-      text-align: center;
+      right: 58px;
       width: 50px;
       height: 31px;
-      background-color: #5865f2; /* A modern, Discord-like color */
-      border-color: #5865f2;
-      color: #fff;
+      background: #5865f2;
+      color: white;
+      border: none;
       border-radius: 3px;
       font-weight: bold;
       cursor: pointer;
-      border: none;
     }
-    #gif-browser-btn:hover {
-        background-color: #4a54c9;
-    }
+    #gif-browser-btn:hover { background: #4a54c9; }
 
-    /* Adjust textarea to make space for both buttons */
-    .chat .input textarea {
-      padding-right: 112px !important;
-    }
+    .chat .input textarea { padding-right: 112px !important; }
 
-    /* Styles for the GIF browser modal */
     #gif-modal {
-      display: none; /* Hidden by default */
+      display: none;
       position: fixed;
-      z-index: 10001; /* High z-index to appear on top */
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
+      z-index: 10001;
+      background: rgba(0,0,0,0.75);
       overflow: auto;
-      background-color: rgba(0,0,0,0.75);
     }
 
     #gif-modal-content {
-      position: relative;
-      background-color: #36393f; /* Dark theme like Discord */
+      background: #36393f;
       margin: 8% auto;
       padding: 20px;
       border: 1px solid #202225;
       width: 90%;
       max-width: 640px;
       border-radius: 8px;
-      color: #fff;
+      color: white;
       box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     }
 
     #gif-modal-close {
-      color: #b9bbbe;
       position: absolute;
-      top: 10px;
-      right: 15px;
+      top: 10px; right: 15px;
       font-size: 28px;
-      font-weight: bold;
+      color: #b9bbbe;
       cursor: pointer;
     }
-    #gif-modal-close:hover {
-        color: #fff;
-    }
+    #gif-modal-close:hover { color: white; }
 
-    #gif-search-container {
-      display: flex;
-      margin-bottom: 20px;
-    }
+    #gif-search-container { display: flex; margin-bottom: 20px; }
 
     #gif-search-input {
-      flex-grow: 1;
+      flex: 1;
       padding: 10px;
       border-radius: 3px;
       border: 1px solid #202225;
-      background-color: #40444b;
+      background: #40444b;
       color: #dcddde;
       font-size: 16px;
     }
@@ -105,22 +83,14 @@ function injectGifBrowserCSS() {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
       gap: 10px;
-      height: 55vh;
+      max-height: 55vh;
       overflow-y: auto;
       padding-right: 5px;
     }
-    
-    /* Custom scrollbar for the results */
-    #gif-results::-webkit-scrollbar {
-      width: 8px;
-    }
-    #gif-results::-webkit-scrollbar-track {
-      background: #2e3338;
-    }
-    #gif-results::-webkit-scrollbar-thumb {
-      background: #202225;
-      border-radius: 4px;
-    }
+
+    #gif-results::-webkit-scrollbar { width: 8px; }
+    #gif-results::-webkit-scrollbar-track { background: #2e3338; }
+    #gif-results::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
 
     #gif-results img {
       width: 100%;
@@ -128,89 +98,65 @@ function injectGifBrowserCSS() {
       object-fit: cover;
       cursor: pointer;
       border-radius: 4px;
-      background-color: #202225;
-      transition: transform 0.2s ease;
+      background: #202225;
+      transition: transform 0.2s;
     }
-    #gif-results img:hover {
-        transform: scale(1.05);
-    }
-    
-    .gif-loading-text {
-        color: #b9bbbe;
-    }
+    #gif-results img:hover { transform: scale(1.05); }
 
-    /* Style for last-refresh element */
+    .gif-loading-text { color: #b9bbbe; }
+
     .last-refresh {
       margin-top: 10px;
       font-size: 14px;
       color: #b9bbbe;
     }
   `;
-  const styleSheet = document.createElement("style");
-  styleSheet.type = "text/css";
-  styleSheet.innerText = css;
-  document.head.appendChild(styleSheet);
+  const style = document.createElement("style");
+  style.innerText = css;
+  document.head.appendChild(style);
 }
 
-/**
- * Fetches GIFs from the Tenor API based on a search query and displays them.
- * @param {string} query - The search term for GIFs.
- */
 async function fetchAndDisplayGifs(query = 'trending') {
-  const resultsContainer = document.getElementById('gif-results');
-  if (!resultsContainer) return;
-  resultsContainer.innerHTML = '<p class="gif-loading-text">Loading GIFs...</p>';
+  const container = document.getElementById('gif-results');
+  if (!container) return;
+  container.innerHTML = '<p class="gif-loading-text">Loading GIFs...</p>';
 
-  // IMPORTANT: You should get your own API key from Tenor (https://tenor.com/developer/keyregistration)
-  // The key below is a public test key from Tenor's documentation and may be rate-limited or disabled.
-  const API_KEY = 'ENTERAPIKEY';
-  const CLIENT_KEY = 'ENTERAPIKEY'; // A descriptive client key
-  const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=${CLIENT_KEY}&limit=30`;
+  const API_KEY = 'ENTERYOUAPIKEY';
+  const CLIENT_KEY = 'ENTERYOURCLIENTKEY';
+  const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=${CLIENT_KEY}&limit=100`;
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    
-    resultsContainer.innerHTML = ''; // Clear loading message
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-    if (data.results && data.results.length > 0) {
+    container.innerHTML = '';
+
+    if (data.results?.length > 0) {
       data.results.forEach(gif => {
-        const gifUrl = gif.media_formats.gif.url;
-        const previewUrl = gif.media_formats.tinygif.url; // Use a smaller, animated preview
-        
         const img = document.createElement('img');
-        img.src = previewUrl;
-        img.dataset.gifUrl = gifUrl; // Store the full-quality GIF URL
+        img.src = gif.media_formats.tinygif.url;
+        img.dataset.gifUrl = gif.media_formats.gif.url;
         img.alt = gif.content_description;
         img.title = gif.content_description;
-        
-        resultsContainer.appendChild(img);
+        container.appendChild(img);
       });
     } else {
-      resultsContainer.innerHTML = '<p class="gif-loading-text">No GIFs found for that search.</p>';
+      container.innerHTML = '<p class="gif-loading-text">No GIFs found.</p>';
     }
-  } catch (error) {
-    console.error('Error fetching GIFs from Tenor API:', error);
-    resultsContainer.innerHTML = '<p class="gif-loading-text">Could not load GIFs. The public API key might be rate-limited.</p>';
+  } catch (err) {
+    console.error('Tenor fetch error:', err);
+    container.innerHTML = '<p class="gif-loading-text">Could not load GIFs.</p>';
   }
 }
 
-/**
- * Creates and injects the GIF browser modal into the page, and sets up its event listeners.
- */
 function createGifBrowser() {
-  // Don't create the modal if it already exists
-  if (document.getElementById('gif-modal')) {
-    return;
-  }
+  if (document.getElementById('gif-modal')) return;
 
-  const modalHTML = `
+  document.body.insertAdjacentHTML('beforeend', `
     <div id="gif-modal">
       <div id="gif-modal-content">
-        <span id="gif-modal-close">&times;</span>
+        <span id="gif-modal-close">×</span>
         <h2>GIF Browser</h2>
         <div id="gif-search-container">
           <input type="text" id="gif-search-input" placeholder="Search Tenor GIFs..." />
@@ -218,59 +164,303 @@ function createGifBrowser() {
         <div id="gif-results"></div>
       </div>
     </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  `);
 
-  // --- Event Listeners ---
   const modal = document.getElementById('gif-modal');
-  const closeButton = document.getElementById('gif-modal-close');
-  const searchInput = document.getElementById('gif-search-input');
-  const resultsContainer = document.getElementById('gif-results');
 
-  // Open the modal
-  document.getElementById('gif-browser-btn').addEventListener('click', () => {
+  document.getElementById('gif-browser-btn').onclick = () => {
     modal.style.display = 'block';
-    searchInput.focus();
-    // Fetch trending GIFs when opened
+    document.getElementById('gif-search-input').focus();
     fetchAndDisplayGifs('trending');
-  });
+  };
 
-  // Close the modal
-  closeButton.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-  window.addEventListener('click', (event) => {
-    if (event.target == modal) {
+  document.getElementById('gif-modal-close').onclick = () => modal.style.display = 'none';
+  window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+
+  let timeout;
+  document.getElementById('gif-search-input').onkeyup = e => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fetchAndDisplayGifs(e.target.value.trim() || 'trending'), 500);
+  };
+
+  document.getElementById('gif-results').onclick = e => {
+    const img = e.target.closest('img');
+    if (img?.dataset.gifUrl) {
+      const ta = document.querySelector('textarea[name="chat_text"]');
+      if (ta) ta.value = img.dataset.gifUrl;
       modal.style.display = 'none';
     }
-  });
+  };
+}
 
-  // Search for GIFs on keyup with debounce
-  let searchTimeout;
-  searchInput.addEventListener('keyup', (event) => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      const query = event.target.value.trim();
-      fetchAndDisplayGifs(query || 'trending');
-    }, 300); // Debounce search to avoid excessive API calls
-  });
+// ────────────────────────────────────────────────
+// Emoji Browser + Persistent Local Cache
+// ────────────────────────────────────────────────
 
-  // Handle GIF selection
-  resultsContainer.addEventListener('click', (event) => {
-    if (event.target.tagName === 'IMG' && event.target.dataset.gifUrl) {
-      const chatTextarea = document.querySelector('textarea[name="chat_text"]');
-      if (chatTextarea) {
-        chatTextarea.value = event.target.dataset.gifUrl;
-        // Optionally, auto-submit the form
-        // const chatForm = document.querySelector('.chat-form');
-        // if (chatForm) chatForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      }
-      modal.style.display = 'none'; // Close modal after selection
+function injectEmojiBrowserCSS() {
+  const css = `
+    #emoji-browser-btn {
+      position: absolute;
+      top: 4px;
+      right: 112px;
+      width: 50px;
+      height: 31px;
+      background: #5865f2;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      font-weight: bold;
+      cursor: pointer;
     }
+    #emoji-browser-btn:hover { background: #4a54c9; }
+
+    .chat .input textarea { padding-right: 164px !important; }
+
+    #emoji-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10002;
+      background: rgba(0,0,0,0.75);
+      overflow: auto;
+    }
+
+    #emoji-modal-content {
+      background: #36393f;
+      margin: 8% auto;
+      padding: 20px;
+      border: 1px solid #202225;
+      width: 90%;
+      max-width: 640px;
+      border-radius: 8px;
+      color: white;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+
+    #emoji-modal-close {
+      position: absolute;
+      top: 10px; right: 15px;
+      font-size: 28px;
+      color: #b9bbbe;
+      cursor: pointer;
+    }
+    #emoji-modal-close:hover { color: white; }
+
+    #emoji-search-container {
+      display: flex;
+      margin-bottom: 15px;
+    }
+
+    #emoji-search-input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 3px;
+      border: 1px solid #202225;
+      background: #40444b;
+      color: #dcddde;
+      font-size: 16px;
+    }
+
+    #refresh-emoji-cache {
+      margin-left: 10px;
+      padding: 8px 12px;
+      background: #5865f2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #emoji-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      max-height: 55vh;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    #emoji-results::-webkit-scrollbar { width: 8px; }
+    #emoji-results::-webkit-scrollbar-track { background: #2e3338; }
+    #emoji-results::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
+
+    #emoji-results div {
+      text-align: center;
+      cursor: pointer;
+      padding: 10px;
+      border-radius: 4px;
+      background: #202225;
+      transition: transform 0.2s;
+    }
+    #emoji-results div:hover { transform: scale(1.05); }
+
+    #emoji-results img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+    }
+
+    .emoji-loading-text { color: #b9bbbe; }
+
+    .embedded-emoji {
+      width: 32px !important;
+      height: 32px !important;
+      vertical-align: middle;
+      margin: 0 3px;
+      object-fit: contain;
+      display: inline-block;
+    }
+  `;
+  const style = document.createElement("style");
+  style.innerText = css;
+  document.head.appendChild(style);
+}
+
+// ─── Cache Helpers ──────────────────────────────────────
+
+async function getCachedEmojiData() {
+  return new Promise(r => chrome.storage.local.get('emojiCache', d => r(d.emojiCache || null)));
+}
+
+async function saveEmojiCache(data) {
+  return new Promise(r => chrome.storage.local.set({ emojiCache: data }, r));
+}
+
+let allEmojis = null;
+let emojiMap = {};
+
+async function getEmojisFromApi() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'fetchEmojis' }, response => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError.message);
+        return;
+      }
+      if (response.error) reject(response.error);
+      else resolve(response.data);
+    });
   });
 }
 
-// --- End of GIF Browser Functions ---
+async function fetchAndDisplayEmojis(query = '') {
+  const container = document.getElementById('emoji-results');
+  if (!container) return;
+  container.innerHTML = '<p class="emoji-loading-text">Loading emojis...</p>';
+
+  try {
+    let cached = await getCachedEmojiData();
+
+    if (cached) {
+      allEmojis = cached.allEmojis;
+      emojiMap = cached.emojiMap;
+    } else {
+      allEmojis = await getEmojisFromApi();
+      emojiMap = {};
+      allEmojis.forEach(e => {
+        const name = e.slug.toLowerCase();
+        emojiMap[name] = e.image;
+      });
+      await saveEmojiCache({ allEmojis, emojiMap });
+    }
+
+    const filtered = query
+      ? allEmojis.filter(e =>
+          e.title?.toLowerCase().includes(query.toLowerCase()) ||
+          e.slug.toLowerCase().includes(query.toLowerCase()))
+      : allEmojis.slice(0, 500);
+
+    container.innerHTML = '';
+
+    if (filtered.length > 0) {
+      filtered.forEach(emoji => {
+        const name = emoji.slug.toLowerCase();
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <img src="${emoji.image}" alt=":${name}:" title=":${name}:">
+          <p>:${name}:</p>
+        `;
+        div.onclick = () => {
+          const ta = document.querySelector('textarea[name="chat_text"]');
+          if (ta) ta.value += ` :${name}: `;
+          document.getElementById('emoji-modal').style.display = 'none';
+        };
+        container.appendChild(div);
+      });
+    } else {
+      container.innerHTML = '<p class="emoji-loading-text">No emojis found for that search.</p>';
+    }
+  } catch (err) {
+    console.error('Emoji load error:', err);
+    container.innerHTML = '<p class="emoji-loading-text">Failed to load emojis. Try again.</p>';
+  }
+}
+
+function createEmojiBrowser() {
+  if (document.getElementById('emoji-modal')) return;
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="emoji-modal">
+      <div id="emoji-modal-content">
+        <span id="emoji-modal-close">×</span>
+        <h2>Emoji Browser</h2>
+        <div id="emoji-search-container">
+          <input type="text" id="emoji-search-input" placeholder="Search Emojis..." />
+          <button id="refresh-emoji-cache">Refresh List</button>
+        </div>
+        <div id="emoji-results"></div>
+        <div style="margin-top:20px; text-align:center;">
+          <a href="https://emoji.gg/" target="_blank" style="color:#5865f2; font-weight:bold; text-decoration:none;">
+            Browse more on emoji.gg
+          </a>
+          <p style="font-size:12px; color:#b9bbbe;">Search for any emoji — even Stitch ones!</p>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const modal = document.getElementById('emoji-modal');
+
+  document.getElementById('emoji-browser-btn').onclick = async () => {
+    modal.style.display = 'block';
+    document.getElementById('emoji-search-input').focus();
+    await fetchAndDisplayEmojis();
+  };
+
+  document.getElementById('emoji-modal-close').onclick = () => modal.style.display = 'none';
+  window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+
+  let timeout;
+  document.getElementById('emoji-search-input').onkeyup = e => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fetchAndDisplayEmojis(e.target.value.trim()), 500);
+  };
+
+  document.getElementById('refresh-emoji-cache').onclick = async () => {
+    await saveEmojiCache(null); // clear cache
+    allEmojis = null;
+    await fetchAndDisplayEmojis(document.getElementById('emoji-search-input').value);
+    alert('Emoji list refreshed from emoji.gg!');
+  };
+}
+
+async function embedEmojis(messageElement) {
+  if (messageElement.dataset.emojisProcessed) return;
+
+  let html = messageElement.innerHTML;
+
+  html = html.replace(/:([\w-]+):/g, (match, name) => {
+    const key = name.toLowerCase();
+    if (emojiMap[key]) {
+      return `<img src="${emojiMap[key]}" alt="${match}" class="embedded-emoji" />`;
+    }
+    return match;
+  });
+
+  messageElement.innerHTML = html;
+  messageElement.dataset.emojisProcessed = 'true';
+}
+
+// --- End of Emoji Browser Functions ---
 
 function getPersonNameFromPage() {
   const scripts = document.getElementsByTagName('script');
@@ -1390,6 +1580,10 @@ function injectToggles(username, userRoles, retries = 3) {
   }
 }
 
+async function getCachedEmojiData() {
+  return new Promise(r => chrome.storage.local.get('emojiCache', d => r(d.emojiCache || null)));
+}
+
 // Function to initialize the extension
 function initExtension(retries = 10) {
   try {
@@ -1521,16 +1715,26 @@ function initExtension(retries = 10) {
       gifButton.textContent = 'GIF';
       chatForm.appendChild(gifButton);
 
-      // Create the modal and its logic
       createGifBrowser();
-      // Inject the CSS for the modal and button
       injectGifBrowserCSS();
     }
     // --- End of GIF Browser Injection ---
 
+    // --- Inject Emoji Browser ---
+    if (chatForm && !document.getElementById('emoji-browser-btn')) {
+      const emojiButton = document.createElement('button');
+      emojiButton.type = 'button';
+      emojiButton.id = 'emoji-browser-btn';
+      emojiButton.textContent = 'Emoji';
+      chatForm.appendChild(emojiButton);
+
+      createEmojiBrowser();
+      injectEmojiBrowserCSS();
+    }
+    // --- End of Emoji Browser Injection ---
+
     // Inject Last Refresh timestamp
     if (window.isFeatureEnabled && window.isFeatureEnabled("LastRefresh")) {
-      // Create LastRefresh elements for both locations
       createLastRefreshElement('controls-wrapper');
       createLastRefreshElement('overview');
     } else {
@@ -1549,18 +1753,38 @@ function initExtension(retries = 10) {
       if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
         console.error("Chat container not found for observers");
       }
-      return; // Stop execution if chat is not found
+      return;
     }
 
-    // Apply saved toggle states to initial messages
-    const initialMessages = chatContainer.querySelectorAll('div.text');
-    initialMessages.forEach(embedGifs);
-    if (hideSlashCommands) {
-      toggleSlashCommandVisibility(initialMessages, true);
-    }
-    if (hideGifPreviews) {
-      toggleGifPreviewVisibility(initialMessages, true);
-    }
+    // ─── IMPORTANT: Load emoji cache at startup + re-embed all messages ───
+    (async () => {
+      try {
+        const cached = await getCachedEmojiData();
+        if (cached) {
+          allEmojis = cached.allEmojis;
+          emojiMap = cached.emojiMap;
+          console.log(`Emoji cache loaded on startup (${Object.keys(emojiMap).length} emojis ready)`);
+        } else {
+          console.log("No emoji cache found yet — will fetch when emoji modal is first opened");
+        }
+
+        // Re-process ALL existing chat messages so they use the loaded map
+        const initialMessages = chatContainer.querySelectorAll('div.text');
+        for (const message of initialMessages) {
+          embedGifs(message);
+          await embedEmojis(message);
+        }
+
+        if (hideSlashCommands) {
+          toggleSlashCommandVisibility(initialMessages, true);
+        }
+        if (hideGifPreviews) {
+          toggleGifPreviewVisibility(initialMessages, true);
+        }
+      } catch (err) {
+        console.warn("Failed to load or apply emoji cache on startup:", err);
+      }
+    })();
 
     // Inject toggles
     injectToggles(username, userRoles);
@@ -1568,29 +1792,21 @@ function initExtension(retries = 10) {
     // Function to check commands and mentions in new messages
     const checkMessagesForCommands = (messages) => {
       try {
-        messages.forEach(message => {
+        messages.forEach(async (message) => {
           embedGifs(message);
+          await embedEmojis(message);
           const messageText = message.textContent.trim();
           const liElement = message.closest('li');
           if (liElement) {
-            const senderNameRaw = liElement.querySelector('.name')?.dataset.originalName || liElement.querySelector('.name')?.textContent.split(' - ')[0]?.trim();
-            if (!senderNameRaw) {
-              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.log("Sender name not found in message");
-              }
-              return;
-            }
+            const senderNameRaw = liElement.querySelector('.name')?.dataset.originalName || 
+                                 liElement.querySelector('.name')?.textContent.split(' - ')[0]?.trim();
+            if (!senderNameRaw) return;
+
             const senderName = senderNameRaw.replace(/\s+/g, ' ').trim();
             const senderFirstName = senderName.split(' ')[0];
-            if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-              console.log(`Message: ${messageText}, Sender: ${senderName}, Current user: ${personName}`);
-            }
 
             if (hideSlashCommands && messageText.startsWith('/')) {
               liElement.style.display = 'none';
-              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.log(`Hid slash command message: ${messageText}`);
-              }
             }
 
             if (canUseFeature("Command", "/nick", window.elvantoUserRoles)) {
@@ -1599,63 +1815,30 @@ function initExtension(retries = 10) {
                 handleNickCommand(message);
               }
             }
+
             if (messageText.toLowerCase() === "/refresh") {
-              // Normalize sender name to match roster format
               const normalizedSender = toLastnameFirstname(senderName);
               const normalizedPerson = personName.replace(/,\s*/g, ' ').trim();
 
-              // Get sender's roles from roster
-              const senderRoles = (window.elvantoRoster && window.elvantoRoster[normalizedSender]) || [];
-              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.log(`Sender ${normalizedSender} roles: ${senderRoles.join(', ') || 'none'}`);
-              }
+              const senderRoles = window.elvantoRoster?.[normalizedSender] || [];
 
-              // Check if sender is the current user
               if (normalizedSender === toLastnameFirstname(normalizedPerson)) {
                 if (canUseFeature("Command", "/refresh", window.elvantoUserRoles)) {
-                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("Refresh command from current user with permission, reloading...");
-                  }
-                  // Update lastRefreshTime before reloading
                   lastRefreshTime = new Date();
                   location.reload();
-                } else {
-                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("Refresh command from current user denied: no permission");
-                  }
                 }
-              }
-              // Check sender's permission
-              else if (canUseFeature("Command", "/refresh", senderRoles)) {
-                if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                  console.log("Refresh command from sender with permission, reloading...");
-                }
-                // Update lastRefreshTime before reloading
+              } else if (canUseFeature("Command", "/refresh", senderRoles)) {
                 lastRefreshTime = new Date();
                 location.reload();
-              }
-              // Check if sender is the controller
-              else {
+              } else {
                 const controllerFirstName = getControllerName();
                 if (controllerFirstName && senderFirstName === controllerFirstName) {
-                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("Refresh command from controller, reloading...");
-                  }
-                  // Update lastRefreshTime before reloading
                   lastRefreshTime = new Date();
                   location.reload();
-                } else {
-                  if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                    console.log("Ignoring /refresh: sender has no permission and is not current user or controller");
-                  }
                 }
               }
             } else if (mentionRegex && mentionRegex.test(messageText)) {
               message.classList.add('mentioned');
-              if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
-                console.log(`Highlighted mention: ${messageText}`);
-              }
-              // Show OS notification
               showNotification(`Mention in Elvanto Live`, {
                 body: `${senderName}: ${messageText}`,
                 icon: 'https://www.elvanto.com.au/wp-content/themes/elvanto/assets/images/logo.png'
@@ -1671,24 +1854,17 @@ function initExtension(retries = 10) {
     };
 
     // === Initial Page Load Processing ===
-    // 1. Color all names based on roles
     colorChatNames();
-    // 2. Scan for all /nick commands, and apply the latest stored nicknames
     scanAndApplyNicknames();
 
-    // === Set up a single observer for new messages ===
+    // === Mutation Observer for new messages ===
     const chatObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.addedNodes) {
           mutation.addedNodes.forEach((node) => {
-            // We only care about new <li> elements being added
             if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'LI') {
               const newMessages = node.querySelectorAll('div.text');
-              
-              // Process commands, GIFs, mentions on the new message
               checkMessagesForCommands(newMessages);
-
-              // Recolor all names to catch the new message
               colorChatNames();
             }
           });
