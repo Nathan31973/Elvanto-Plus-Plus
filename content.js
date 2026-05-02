@@ -7,6 +7,7 @@ let hideSlashCommands = false;
 let hideGifPreviews = false;
 let notificationsEnabled = false;
 let lastRefreshTime = null;
+let useLocalTimestamp = false;
 
 if (window.location.href.match(/^https:\/\/.*\.elvanto\.com\.au\/live\//)) {
   console.log("Elvanto live page matched!");
@@ -47,25 +48,30 @@ function injectGifBrowserCSS() {
     }
 
     #gif-modal-content {
+      position: relative;           /* ← THIS FIXES THE CLOSE BUTTON */
       background: #36393f;
       margin: 8% auto;
-      padding: 20px;
+      padding: 20px 20px 20px 20px;
       border: 1px solid #202225;
       width: 90%;
       max-width: 640px;
       border-radius: 8px;
       color: white;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
     }
 
     #gif-modal-close {
       position: absolute;
-      top: 10px; right: 15px;
-      font-size: 28px;
+      top: 12px;
+      right: 18px;
+      font-size: 32px;
+      font-weight: bold;
       color: #b9bbbe;
       cursor: pointer;
+      line-height: 1;
+      z-index: 1;
     }
-    #gif-modal-close:hover { color: white; }
+    #gif-modal-close:hover { color: #ffffff; }
 
     #gif-search-container { display: flex; margin-bottom: 20px; }
 
@@ -104,12 +110,6 @@ function injectGifBrowserCSS() {
     #gif-results img:hover { transform: scale(1.05); }
 
     .gif-loading-text { color: #b9bbbe; }
-
-    .last-refresh {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #b9bbbe;
-    }
   `;
   const style = document.createElement("style");
   style.innerText = css;
@@ -194,7 +194,7 @@ function createGifBrowser() {
 }
 
 // ────────────────────────────────────────────────
-// Emoji Browser + Persistent Local Cache
+// Emoji Browser CSS
 // ────────────────────────────────────────────────
 
 function injectEmojiBrowserCSS() {
@@ -226,30 +226,32 @@ function injectEmojiBrowserCSS() {
     }
 
     #emoji-modal-content {
+      position: relative;           /* ← THIS FIXES THE CLOSE BUTTON */
       background: #36393f;
       margin: 8% auto;
-      padding: 20px;
+      padding: 20px 20px 20px 20px;
       border: 1px solid #202225;
       width: 90%;
       max-width: 640px;
       border-radius: 8px;
       color: white;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
     }
 
     #emoji-modal-close {
       position: absolute;
-      top: 10px; right: 15px;
-      font-size: 28px;
+      top: 12px;
+      right: 18px;
+      font-size: 32px;
+      font-weight: bold;
       color: #b9bbbe;
       cursor: pointer;
+      line-height: 1;
+      z-index: 1;
     }
-    #emoji-modal-close:hover { color: white; }
+    #emoji-modal-close:hover { color: #ffffff; }
 
-    #emoji-search-container {
-      display: flex;
-      margin-bottom: 15px;
-    }
+    #emoji-search-container { display: flex; margin-bottom: 15px; }
 
     #emoji-search-input {
       flex: 1;
@@ -328,60 +330,106 @@ async function saveEmojiCache(data) {
 
 let allEmojis = null;
 let emojiMap = {};
+let customEmojiMap = {};   // NEW: GitHub custom emojis (slug → direct image URL)
+// ────────────────────────────────────────────────
+// CUSTOM GITHUB EMOJI INDEX (static JSON - auto-updated by GitHub Action)
+// ────────────────────────────────────────────────
 
-async function getEmojisFromApi() {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: 'fetchEmojis' }, response => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError.message);
-        return;
-      }
-      if (response.error) reject(response.error);
-      else resolve(response.data);
-    });
-  });
-}
-
-async function fetchAndDisplayEmojis(query = '') {
-  const container = document.getElementById('emoji-results');
-  if (!container) return;
-  container.innerHTML = '<p class="emoji-loading-text">Loading emojis...</p>';
+async function loadCustomEmojiIndex() {
+  const INDEX_URL = 'https://nathan31973.github.io/Elvanto-Plus-Plus-Assets/emoji-index.json';
 
   try {
-    let cached = await getCachedEmojiData();
+    const res = await fetch(INDEX_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+    const data = await res.json();
+
+    // Support both old "emojis" and new "assets" key (your GitHub Action uses "assets")
+    const emojiData = data.assets || data.emojis || {};
+
+    customEmojiMap = emojiData;
+
+    const emojiList = Object.entries(emojiData).map(([slug, image]) => ({
+      slug,
+      image,
+      title: slug,
+      isCustom: true
+    }));
+
+    console.log(`✅ Loaded ${emojiList.length} custom emojis from emoji-index.json`);
+    return emojiList;
+  } catch (err) {
+    console.warn('⚠️ Could not load emoji-index.json:', err.message);
+    console.warn('Make sure this URL loads correctly:', INDEX_URL);
+    return [];
+  }
+}
+// Updated merged loader (emoji.gg + custom index)
+// Merged emoji loader with MUCH better search
+async function fetchAndDisplayEmojisWithCustom(query = '') {
+  const container = document.getElementById('emoji-results');
+  if (!container) return;
+  container.innerHTML = '<p class="emoji-loading-text">Loading emojis (emoji.gg + custom index)... </p>';
+
+  try {
+    // emoji.gg part
+    let emojiGgList = [];
+    let cached = await getCachedEmojiData();
     if (cached) {
       allEmojis = cached.allEmojis;
       emojiMap = cached.emojiMap;
+      emojiGgList = cached.allEmojis || [];
     } else {
       allEmojis = await getEmojisFromApi();
       emojiMap = {};
-      allEmojis.forEach(e => {
-        const name = e.slug.toLowerCase();
-        emojiMap[name] = e.image;
-      });
+      allEmojis.forEach(e => { emojiMap[e.slug.toLowerCase()] = e.image; });
       await saveEmojiCache({ allEmojis, emojiMap });
+      emojiGgList = allEmojis;
     }
 
-    const filtered = query
-      ? allEmojis.filter(e =>
-          e.title?.toLowerCase().includes(query.toLowerCase()) ||
-          e.slug.toLowerCase().includes(query.toLowerCase()))
-      : allEmojis.slice(0, 500);
+    // Custom emojis from your GitHub index
+    const customEmojis = await loadCustomEmojiIndex();
+
+    const merged = [...emojiGgList, ...customEmojis];
+
+    // ── IMPROVED SEARCH LOGIC ──
+    let filtered = merged;
+
+    if (query && query.trim() !== '') {
+      const q = query.toLowerCase().trim();
+      const searchWords = q.split(/\s+/).filter(Boolean);
+
+      filtered = merged
+        .filter(e => {
+          const text = ((e.title || e.slug || '') + ' ' + (e.slug || '')).toLowerCase();
+          return searchWords.every(word => text.includes(word));
+        })
+        .sort((a, b) => {
+          const sa = (a.slug || '').toLowerCase();
+          const sb = (b.slug || '').toLowerCase();
+          // Exact match first
+          if (sa === q) return -1;
+          if (sb === q) return 1;
+          return sa.localeCompare(sb);
+        });
+    } else {
+      // When no search: show all custom emojis first, then top 300 from emoji.gg
+      filtered = [...customEmojis, ...emojiGgList.slice(0, 300)];
+    }
 
     container.innerHTML = '';
 
     if (filtered.length > 0) {
       filtered.forEach(emoji => {
-        const name = emoji.slug.toLowerCase();
         const div = document.createElement('div');
         div.innerHTML = `
-          <img src="${emoji.image}" alt=":${name}:" title=":${name}:">
-          <p>:${name}:</p>
+          <img src="${emoji.image}" alt=":${emoji.slug}:" title=":${emoji.slug}:">
+          <p>:${emoji.slug}:</p>
+          ${emoji.isCustom ? '<span style="font-size:10px;color:#5865f2;">(custom)</span>' : ''}
         `;
         div.onclick = () => {
           const ta = document.querySelector('textarea[name="chat_text"]');
-          if (ta) ta.value += ` :${name}: `;
+          if (ta) ta.value += ` :${emoji.slug}: `;
           document.getElementById('emoji-modal').style.display = 'none';
         };
         container.appendChild(div);
@@ -393,6 +441,18 @@ async function fetchAndDisplayEmojis(query = '') {
     console.error('Emoji load error:', err);
     container.innerHTML = '<p class="emoji-loading-text">Failed to load emojis. Try again.</p>';
   }
+}
+async function getEmojisFromApi() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'fetchEmojis' }, response => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError.message);
+        return;
+      }
+      if (response.error) reject(response.error);
+      else resolve(response.data);
+    });
+  });
 }
 
 function createEmojiBrowser() {
@@ -408,11 +468,6 @@ function createEmojiBrowser() {
           <button id="refresh-emoji-cache">Refresh List</button>
         </div>
         <div id="emoji-results"></div>
-        <div style="margin-top:20px; text-align:center;">
-          <a href="https://emoji.gg/" target="_blank" style="color:#5865f2; font-weight:bold; text-decoration:none;">
-            Browse more on emoji.gg
-          </a>
-          <p style="font-size:12px; color:#b9bbbe;">Search for any emoji — even Stitch ones!</p>
         </div>
       </div>
     </div>
@@ -420,10 +475,11 @@ function createEmojiBrowser() {
 
   const modal = document.getElementById('emoji-modal');
 
+  // Use the NEW merged function
   document.getElementById('emoji-browser-btn').onclick = async () => {
     modal.style.display = 'block';
     document.getElementById('emoji-search-input').focus();
-    await fetchAndDisplayEmojis();
+    await fetchAndDisplayEmojisWithCustom();
   };
 
   document.getElementById('emoji-modal-close').onclick = () => modal.style.display = 'none';
@@ -432,14 +488,14 @@ function createEmojiBrowser() {
   let timeout;
   document.getElementById('emoji-search-input').onkeyup = e => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => fetchAndDisplayEmojis(e.target.value.trim()), 500);
+    timeout = setTimeout(() => fetchAndDisplayEmojisWithCustom(e.target.value.trim()), 500);
   };
 
   document.getElementById('refresh-emoji-cache').onclick = async () => {
-    await saveEmojiCache(null); // clear cache
+    await saveEmojiCache(null); // clear emoji.gg cache only
     allEmojis = null;
-    await fetchAndDisplayEmojis(document.getElementById('emoji-search-input').value);
-    alert('Emoji list refreshed from emoji.gg!');
+    await fetchAndDisplayEmojisWithCustom(document.getElementById('emoji-search-input').value);
+    alert('Emoji list refreshed (emoji.gg + GitHub custom emojis)!');
   };
 }
 
@@ -452,6 +508,9 @@ async function embedEmojis(messageElement) {
     const key = name.toLowerCase();
     if (emojiMap[key]) {
       return `<img src="${emojiMap[key]}" alt="${match}" class="embedded-emoji" />`;
+    }
+    if (customEmojiMap[key]) {
+      return `<img src="${customEmojiMap[key]}" alt="${match}" class="embedded-emoji" />`;
     }
     return match;
   });
@@ -1268,6 +1327,35 @@ function timeAgo(date) {
   return Math.floor(seconds) + " second" + (Math.floor(seconds) === 1 ? "" : "s") + " ago";
 }
 
+// Convert ISO timestamp to local 12-hour clock (11:05 AM)
+function updateAllTimestamps() {
+  document.querySelectorAll('.timeago').forEach(span => {
+    const iso = span.getAttribute('title');
+    if (!iso) return;
+
+    // Backup original text the first time we see it
+    if (!span.dataset.originalTime) {
+      span.dataset.originalTime = span.textContent.trim();
+    }
+
+    if (useLocalTimestamp) {
+      const date = new Date(iso);
+      if (isNaN(date.getTime())) return;
+
+      const formatted = date.toLocaleTimeString('en-AU', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).replace(/am$/i, 'AM').replace(/pm$/i, 'PM');
+
+      span.textContent = formatted;
+    } else {
+      // Restore original "X minutes ago"
+      span.textContent = span.dataset.originalTime || 'just now';
+    }
+  });
+}
+
 // Function to color chat names based on roles
 function colorChatNames() {
   if (!window.permissions || !window.permissions.Roles) {
@@ -1578,10 +1666,143 @@ function injectToggles(username, userRoles, retries = 3) {
       console.log("HideGifPreviews toggle disabled by kill switch/permissions");
     }
   }
+
+    // ── Local Timestamp toggle ──
+  if (canUseFeature("SettingToggle", "LocalTimestamp", userRoles)) {
+    if (!dropdownMenu.querySelector('[data-live-action="toggle-local-timestamp"]')) {
+      const localTimeItem = document.createElement('li');
+      localTimeItem.innerHTML = `
+        <label class="custom-checkbox-label" data-live-action="toggle-local-timestamp">
+          <div class="custom-checkbox${useLocalTimestamp ? ' checked' : ''}">
+            <i class="fa fa-check"></i>
+          </div>
+          Disable message Time Ago
+        </label>
+      `;
+      dropdownMenu.appendChild(localTimeItem);
+
+      const label = localTimeItem.querySelector('label');
+      const checkbox = localTimeItem.querySelector('.custom-checkbox');
+
+      label.addEventListener('click', (event) => {
+        event.preventDefault();
+        const isChecked = checkbox.classList.contains('checked');
+
+        if (!isChecked) {
+          checkbox.classList.add('checked');
+          useLocalTimestamp = true;
+        } else {
+          checkbox.classList.remove('checked');
+          useLocalTimestamp = false;
+        }
+
+        saveToggleStates(username, { hideSlashCommands, hideGifPreviews, useLocalTimestamp });
+        updateAllTimestamps();
+
+        if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
+          console.log(`Local timestamp display: ${useLocalTimestamp ? 'ON (clock time)' : 'OFF (time ago)'}`);
+        }
+      });
+
+      console.log("Local Timestamp toggle injected");
+    }
+  }
 }
 
-async function getCachedEmojiData() {
-  return new Promise(r => chrome.storage.local.get('emojiCache', d => r(d.emojiCache || null)));
+// ────────────────────────────────────────────────
+// Inject custom toggles into the OFFICIAL Settings panel (cog icon)
+// NOW remembers state after refresh (re-loads from localStorage every time)
+// ────────────────────────────────────────────────
+function injectCustomTogglesIntoSettingsPanel(username, userRoles) {
+  const settingsContainer = document.querySelector('.settings');
+  if (!settingsContainer) return;
+
+  let injected = false;
+
+  const injectToggles = () => {
+    const formGroup = settingsContainer.querySelector('.content .form-group');
+    if (!formGroup || injected) return;
+
+    // ←←← FORCE RELOAD latest saved states from localStorage
+    const latestStates = getToggleStates(username);
+    hideSlashCommands = latestStates.hideSlashCommands || false;
+    hideGifPreviews = latestStates.hideGifPreviews || false;
+    useLocalTimestamp = latestStates.useLocalTimestamp || false;
+    notificationsEnabled = latestStates.notificationsEnabled !== undefined 
+      ? latestStates.notificationsEnabled 
+      : notificationsEnabled;
+
+    const customToggles = [
+      { key: 'notificationsEnabled',     label: 'Notifications',           action: 'toggle-notifications',     perm: canUseFeature("SettingToggle", "Notification", userRoles) },
+      { key: 'hideSlashCommands',        label: 'Hide Commands In Chat',   action: 'toggle-hide-slash-commands', perm: canUseFeature("SettingToggle", "HideCommands", userRoles) },
+      { key: 'hideGifPreviews',          label: 'Hide GIF Previews',       action: 'toggle-hide-gif-previews',   perm: canUseFeature("SettingToggle", "HideGifPreviews", userRoles) },
+      { key: 'useLocalTimestamp',        label: 'Disable message Time Ago',     action: 'toggle-local-timestamp',     perm: canUseFeature("SettingToggle", "LocalTimestamp", userRoles) }
+    ];
+
+    customToggles.forEach(t => {
+      if (!t.perm) return;
+      if (formGroup.querySelector(`[data-live-action="${t.action}"]`)) return;
+
+      const isChecked = window[t.key] || latestStates[t.key] || false;
+
+      const html = `
+        <div class="checkbox">
+          <label class="custom-checkbox-label" data-live-action="${t.action}">
+            <div class="custom-checkbox ${isChecked ? 'checked' : ''}">
+              <i class="fa fa-check"></i>
+            </div>
+            ${t.label}
+          </label>
+        </div>
+      `;
+
+      formGroup.insertAdjacentHTML('beforeend', html);
+
+      // Click handler
+      const label = formGroup.querySelector(`[data-live-action="${t.action}"]`);
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const checkbox = label.querySelector('.custom-checkbox');
+        const wasChecked = checkbox.classList.contains('checked');
+
+        if (!wasChecked) {
+          checkbox.classList.add('checked');
+          window[t.key] = true;
+        } else {
+          checkbox.classList.remove('checked');
+          window[t.key] = false;
+        }
+
+        // Save to localStorage (same as dropdown)
+        saveToggleStates(username, {
+          hideSlashCommands,
+          hideGifPreviews,
+          useLocalTimestamp,
+          notificationsEnabled
+        });
+
+        // Apply changes live
+        if (t.key === 'hideSlashCommands') toggleSlashCommandVisibility(document.querySelectorAll('.chat .content ol div.text'), window[t.key]);
+        if (t.key === 'hideGifPreviews') toggleGifPreviewVisibility(document.querySelectorAll('.chat .content ol div.text'), window[t.key]);
+        if (t.key === 'useLocalTimestamp') updateAllTimestamps();
+
+        console.log(`[Settings Panel] ${t.label} → ${window[t.key]}`);
+      });
+    });
+
+    injected = true;
+    console.log("✅ Custom toggles added to official Settings panel (state remembered)");
+  };
+
+  // Watch for panel changes
+  const observer = new MutationObserver(injectToggles);
+  observer.observe(settingsContainer, { childList: true, subtree: true });
+
+  // Try immediately and again after a short delay
+  setTimeout(injectToggles, 200);
+  setTimeout(injectToggles, 800);
+
+  console.log("🔍 Settings panel observer active");
 }
 
 // Function to initialize the extension
@@ -1666,6 +1887,7 @@ function initExtension(retries = 10) {
     const toggleStates = getToggleStates(username);
     hideSlashCommands = toggleStates.hideSlashCommands || false;
     hideGifPreviews = toggleStates.hideGifPreviews || false;
+    useLocalTimestamp = toggleStates.useLocalTimestamp || false;
     if (window.isFeatureEnabled && window.isFeatureEnabled("ConsoleLogging")) {
       console.log(`Loaded toggle states for ${username}: hideSlashCommands=${hideSlashCommands}, hideGifPreviews=${hideGifPreviews}`);
     }
@@ -1768,6 +1990,11 @@ function initExtension(retries = 10) {
           console.log("No emoji cache found yet — will fetch when emoji modal is first opened");
         }
 
+        // Also preload custom GitHub emojis (optional but nice)
+        await loadCustomEmojiIndex();
+
+        updateAllTimestamps();
+
         // Re-process ALL existing chat messages so they use the loaded map
         const initialMessages = chatContainer.querySelectorAll('div.text');
         for (const message of initialMessages) {
@@ -1788,6 +2015,7 @@ function initExtension(retries = 10) {
 
     // Inject toggles
     injectToggles(username, userRoles);
+    injectCustomTogglesIntoSettingsPanel(username, userRoles);
 
     // Function to check commands and mentions in new messages
     const checkMessagesForCommands = (messages) => {
@@ -1795,6 +2023,7 @@ function initExtension(retries = 10) {
         messages.forEach(async (message) => {
           embedGifs(message);
           await embedEmojis(message);
+          updateAllTimestamps();
           const messageText = message.textContent.trim();
           const liElement = message.closest('li');
           if (liElement) {
