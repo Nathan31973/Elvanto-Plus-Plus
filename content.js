@@ -116,37 +116,138 @@ function injectGifBrowserCSS() {
   document.head.appendChild(style);
 }
 
-async function fetchAndDisplayGifs(query = 'trending') {
+// ── GIF state + cache ──────────────────────────────────
+const GIF_API_KEY = 'YOUR_API_KEY'; // Giphy API key here
+const GIF_LIMIT = 50;   // max for beta keys
+
+let gifCache = {};           // { [normalizedQuery]: { gifs: [...], offset: number, hasMore: boolean } }
+let currentGifQuery = '';
+let isLoadingMoreGifs = false;
+
+function normalizeGifQuery(q) {
+  return (q || '').trim().toLowerCase() || 'trending';
+}
+
+function getGifPreviewUrl(gif) {
+  return gif.images?.fixed_height_small?.url
+    || gif.images?.fixed_width_small?.url
+    || gif.images?.preview_gif?.url
+    || gif.images?.downsized_small?.url
+    || gif.images?.downsized?.url;
+}
+
+function getGifFullUrl(gif) {
+  return gif.images?.original?.url || gif.images?.downsized?.url;
+}
+
+function renderGifItems(gifs, container, append = false) {
+  if (!append) container.innerHTML = '';
+
+  // remove any existing "loading more" indicator
+  const existingLoader = container.querySelector('.gif-loading-more');
+  if (existingLoader) existingLoader.remove();
+
+  gifs.forEach(gif => {
+    const img = document.createElement('img');
+    img.src = getGifPreviewUrl(gif);
+    img.dataset.gifUrl = getGifFullUrl(gif);
+    img.alt = gif.title || 'GIF';
+    img.title = gif.title || 'GIF';
+    container.appendChild(img);
+  });
+}
+
+async function fetchAndDisplayGifs(query = 'trending', { append = false } = {}) {
   const container = document.getElementById('gif-results');
   if (!container) return;
-  container.innerHTML = '<p class="gif-loading-text">Loading GIFs...</p>';
 
-  const API_KEY = 'ENTERYOUAPIKEY';
-  const CLIENT_KEY = 'ENTERYOURCLIENTKEY';
-  const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=${CLIENT_KEY}&limit=100`;
+  const normalized = normalizeGifQuery(query);
+
+  // If this is a brand-new search (not appending), reset state
+  if (!append) {
+    currentGifQuery = normalized;
+    isLoadingMoreGifs = false;
+
+    // Serve from cache if we already have results for this query
+    if (gifCache[normalized]?.gifs?.length) {
+      renderGifItems(gifCache[normalized].gifs, container, false);
+      return;
+    }
+
+    container.innerHTML = '<p class="gif-loading-text">Loading GIFs...</p>';
+  }
+
+  // Prevent concurrent loads
+  if (isLoadingMoreGifs) return;
+  isLoadingMoreGifs = true;
+
+  // Determine offset
+  const cached = gifCache[normalized] || { gifs: [], offset: 0, hasMore: true };
+  const offset = append ? cached.offset : 0;
+
+  if (append && !cached.hasMore) {
+    isLoadingMoreGifs = false;
+    return;
+  }
+
+  // Show a small "loading more" indicator when appending
+  if (append) {
+    const loader = document.createElement('p');
+    loader.className = 'gif-loading-text gif-loading-more';
+    loader.style.gridColumn = '1 / -1';
+    loader.textContent = 'Loading more...';
+    container.appendChild(loader);
+  }
+
+  let url;
+  if (normalized === 'trending') {
+    url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIF_API_KEY}&limit=${GIF_LIMIT}&offset=${offset}&rating=pg`;
+  } else {
+    url = `https://api.giphy.com/v1/gifs/search?api_key=${GIF_API_KEY}&q=${encodeURIComponent(normalized)}&limit=${GIF_LIMIT}&offset=${offset}&rating=pg`;
+  }
 
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    container.innerHTML = '';
+    const newGifs = data.data || [];
+    const pagination = data.pagination || {};
+    const totalCount = pagination.total_count ?? 0;
+    const nextOffset = offset + newGifs.length;
+    const hasMore = nextOffset < totalCount && newGifs.length > 0;
 
-    if (data.results?.length > 0) {
-      data.results.forEach(gif => {
-        const img = document.createElement('img');
-        img.src = gif.media_formats.tinygif.url;
-        img.dataset.gifUrl = gif.media_formats.gif.url;
-        img.alt = gif.content_description;
-        img.title = gif.content_description;
-        container.appendChild(img);
-      });
+    // Update cache
+    if (append) {
+      gifCache[normalized] = {
+        gifs: [...(gifCache[normalized]?.gifs || []), ...newGifs],
+        offset: nextOffset,
+        hasMore
+      };
     } else {
+      gifCache[normalized] = {
+        gifs: newGifs,
+        offset: nextOffset,
+        hasMore
+      };
+    }
+
+    // Render
+    if (newGifs.length === 0 && !append) {
       container.innerHTML = '<p class="gif-loading-text">No GIFs found.</p>';
+    } else {
+      renderGifItems(newGifs, container, append);
     }
   } catch (err) {
-    console.error('Tenor fetch error:', err);
-    container.innerHTML = '<p class="gif-loading-text">Could not load GIFs.</p>';
+    console.error('Giphy fetch error:', err);
+    if (!append) {
+      container.innerHTML = '<p class="gif-loading-text">Could not load GIFs. Check your Giphy API key.</p>';
+    } else {
+      const loader = container.querySelector('.gif-loading-more');
+      if (loader) loader.textContent = 'Failed to load more.';
+    }
+  } finally {
+    isLoadingMoreGifs = false;
   }
 }
 
@@ -159,7 +260,7 @@ function createGifBrowser() {
         <span id="gif-modal-close">×</span>
         <h2>GIF Browser</h2>
         <div id="gif-search-container">
-          <input type="text" id="gif-search-input" placeholder="Search Tenor GIFs..." />
+          <input type="text" id="gif-search-input" placeholder="Search Giphy GIFs..." />
         </div>
         <div id="gif-results"></div>
       </div>
@@ -167,6 +268,7 @@ function createGifBrowser() {
   `);
 
   const modal = document.getElementById('gif-modal');
+  const results = document.getElementById('gif-results');
 
   document.getElementById('gif-browser-btn').onclick = () => {
     modal.style.display = 'block';
@@ -177,13 +279,17 @@ function createGifBrowser() {
   document.getElementById('gif-modal-close').onclick = () => modal.style.display = 'none';
   window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
 
+  // Debounced search
   let timeout;
   document.getElementById('gif-search-input').onkeyup = e => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => fetchAndDisplayGifs(e.target.value.trim() || 'trending'), 500);
+    timeout = setTimeout(() => {
+      fetchAndDisplayGifs(e.target.value.trim() || 'trending');
+    }, 500);
   };
 
-  document.getElementById('gif-results').onclick = e => {
+  // Click to insert GIF URL
+  results.onclick = e => {
     const img = e.target.closest('img');
     if (img?.dataset.gifUrl) {
       const ta = document.querySelector('textarea[name="chat_text"]');
@@ -191,6 +297,17 @@ function createGifBrowser() {
       modal.style.display = 'none';
     }
   };
+
+  // ── Infinite scroll ──
+  results.addEventListener('scroll', () => {
+    // Trigger when within 120px of the bottom
+    if (results.scrollTop + results.clientHeight >= results.scrollHeight - 120) {
+      const cached = gifCache[currentGifQuery];
+      if (cached?.hasMore && !isLoadingMoreGifs) {
+        fetchAndDisplayGifs(currentGifQuery, { append: true });
+      }
+    }
+  });
 }
 
 // ────────────────────────────────────────────────
